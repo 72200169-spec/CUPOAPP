@@ -12,6 +12,7 @@ from reportlab.lib.units import cm
 import pandas as pd
 import os
 import tempfile
+import json
 
 st.set_page_config(
     page_title="CupoApp | Control de Tardanzas",
@@ -20,332 +21,365 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-PROFESSIONAL_UI = """
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+THEME = st.session_state.theme
+
+IS_DARK = THEME == "dark"
+
+COLORS = {
+    "bg_surface":      "#0b1220" if IS_DARK else "#eef2f7",
+    "bg_panel":        "#111827" if IS_DARK else "#ffffff",
+    "bg_elevated":     "#1e293b" if IS_DARK else "#f8fafc",
+    "bg_hover":        "#334155" if IS_DARK else "#f1f5f9",
+    "border":          "#1f2a44" if IS_DARK else "#e2e8f0",
+    "border_strong":   "#334155" if IS_DARK else "#cbd5e1",
+    "text_primary":    "#f1f5f9" if IS_DARK else "#0f172a",
+    "text_secondary":  "#cbd5e1" if IS_DARK else "#475569",
+    "text_muted":      "#94a3b8" if IS_DARK else "#64748b",
+    "accent":          "#6366f1",
+    "accent_2":        "#8b5cf6",
+    "success":         "#10b981",
+    "warning":         "#f59e0b",
+    "danger":          "#ef4444",
+    "info":            "#3b82f6",
+    "success_bg":      "#064e3b" if IS_DARK else "#dcfce7",
+    "warning_bg":      "#78350f" if IS_DARK else "#fef3c7",
+    "danger_bg":       "#7f1d1d" if IS_DARK else "#fee2e2",
+    "info_bg":         "#1e3a8a" if IS_DARK else "#dbeafe",
+    "success_text":    "#34d399" if IS_DARK else "#15803d",
+    "warning_text":    "#fbbf24" if IS_DARK else "#92400e",
+    "danger_text":     "#f87171" if IS_DARK else "#991b1b",
+    "info_text":       "#60a5fa" if IS_DARK else "#1d4ed8",
+    "penalty_ok_bg":   "#064e3b" if IS_DARK else "#f0fdf4",
+    "penalty_ok_brd":  "#065f46" if IS_DARK else "#bbf7d0",
+    "penalty_lt_bg":   "#78350f" if IS_DARK else "#fffbeb",
+    "penalty_lt_brd":  "#92400e" if IS_DARK else "#fde68a",
+    "penalty_item_bg": "rgba(255,255,255,0.08)" if IS_DARK else "rgba(255,255,255,0.7)",
+    "input_bg":        "#0b1220" if IS_DARK else "#f8fafc",
+    "tab_bar_bg":      "#1e293b" if IS_DARK else "#e2e8f0",
+    "tab_active_bg":   "#0b1220" if IS_DARK else "#ffffff",
+    "scrollbar":       "#475569" if IS_DARK else "#cbd5e1",
+}
+
+PROFESSIONAL_UI = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    * { font-family: 'Inter', sans-serif; }
-    h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+    * {{ font-family: 'Inter', sans-serif !important; }}
+    h1, h2, h3, h4, h5, h6, [class*="Heading"], p, span, div, label {{ color: {COLORS['text_primary']}; }}
+    h1, h2, h3, h4, h5, h6 {{ font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; letter-spacing: -0.015em; }}
 
-    .stApp {
-        background: #f8fafc;
-    }
+    .stApp {{
+        background: linear-gradient(135deg, {COLORS['bg_surface']} 0%, {"#111827" if IS_DARK else "#e6ecf5"} 100%) !important;
+        min-height: 100vh;
+    }}
 
-    [data-testid="stHeader"] { background: transparent; }
-    [data-testid="stToolbar"] { right: 2rem; }
+    [data-testid="stHeader"] {{ background: transparent !important; }}
+    [data-testid="stDecoration"] {{ display: none !important; }}
+    [data-testid="stToolbar"] {{ right: 2rem; }}
 
-    section[data-testid="stSidebar"] {
-        background: #ffffff !important;
-        border-right: 1px solid #e2e8f0;
+    section[data-testid="stSidebar"] {{
+        background: {COLORS['bg_panel']} !important;
+        border-right: 1px solid {COLORS['border']} !important;
         padding-top: 0 !important;
-    }
-    section[data-testid="stSidebar"] > div:first-child { padding-top: 0; }
+    }}
+    section[data-testid="stSidebar"] > div:first-child {{ padding-top: 0 !important; }}
 
-    .brand-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    .block-container {{
+        max-width: 1400px;
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+    }}
+
+    .brand-header {{
+        background: linear-gradient(135deg, {COLORS['accent']} 0%, {COLORS['accent_2']} 100%);
         padding: 28px 24px 24px 24px;
         margin: -1rem -1rem 20px -1rem;
-        color: white;
-    }
-    .brand-header h1 {
-        margin: 0;
-        font-size: 1.55rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-    }
-    .brand-header .tagline {
-        margin: 6px 0 0 0;
-        font-size: 0.82rem;
-        opacity: 0.9;
-        font-weight: 500;
-    }
+        color: #ffffff;
+        box-shadow: 0 10px 40px {"rgba(99,102,241,0.35)" if IS_DARK else "rgba(99,102,241,0.18)"};
+    }}
+    .brand-header h1 {{ margin: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: #fff !important; }}
+    .brand-header .tagline {{ margin: 6px 0 0 0; font-size: 0.85rem; opacity: 0.95; font-weight: 500; color: #e0e7ff !important; }}
 
-    .stat-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 18px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    .stat-card {{
+        background: {COLORS['bg_panel']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,{"0.35" if IS_DARK else "0.04"});
         transition: all 0.2s ease;
-    }
-    .stat-card:hover {
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }}
+    .stat-card:hover {{
+        border-color: {COLORS['accent']};
+        box-shadow: 0 10px 30px rgba(99,102,241,{"0.25" if IS_DARK else "0.12"});
         transform: translateY(-2px);
-    }
-    .stat-card .stat-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-        margin-bottom: 10px;
-    }
-    .stat-card .stat-label {
-        font-size: 0.78rem;
-        color: #64748b;
-        font-weight: 500;
-        margin: 0;
-    }
-    .stat-card .stat-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: #0f172a;
-        margin: 4px 0 0 0;
-        letter-spacing: -0.02em;
-    }
-    .stat-card.primary .stat-icon { background: #eef2ff; color: #4f46e5; }
-    .stat-card.success .stat-icon { background: #dcfce7; color: #16a34a; }
-    .stat-card.warning .stat-icon { background: #fef3c7; color: #d97706; }
-    .stat-card.danger .stat-icon { background: #fee2e2; color: #dc2626; }
+    }}
+    .stat-card .stat-icon {{
+        width: 46px; height: 46px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.35rem; margin-bottom: 12px;
+    }}
+    .stat-card .stat-label {{
+        font-size: 0.78rem; color: {COLORS['text_muted']}; font-weight: 500; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;
+    }}
+    .stat-card .stat-value {{
+        font-size: 1.85rem; font-weight: 800; color: {COLORS['text_primary']};
+        margin: 4px 0 0 0; letter-spacing: -0.025em;
+    }}
+    .stat-card.primary .stat-icon {{ background: {"#312e81" if IS_DARK else "#eef2ff"}; color: {COLORS['accent']}; }}
+    .stat-card.success .stat-icon {{ background: {COLORS['success_bg']}; color: {COLORS['success']}; }}
+    .stat-card.warning .stat-icon {{ background: {COLORS['warning_bg']}; color: {COLORS['warning']}; }}
+    .stat-card.danger  .stat-icon {{ background: {COLORS['danger_bg']};  color: {COLORS['danger']}; }}
 
-    .panel {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+    .panel {{
+        background: {COLORS['bg_panel']};
+        border: 1px solid {COLORS['border']};
         border-radius: 16px;
         padding: 24px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 3px rgba(0,0,0,{"0.3" if IS_DARK else "0.04"});
         margin-bottom: 20px;
-    }
-    .panel-title {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0 0 4px 0;
-        letter-spacing: -0.01em;
-    }
-    .panel-subtitle {
-        font-size: 0.82rem;
-        color: #64748b;
-        margin: 0 0 18px 0;
-    }
+    }}
+    .panel-title {{
+        font-size: 1.15rem; font-weight: 700; color: {COLORS['text_primary']};
+        margin: 0 0 4px 0; letter-spacing: -0.01em;
+    }}
+    .panel-subtitle {{
+        font-size: 0.85rem; color: {COLORS['text_muted']}; margin: 0 0 18px 0;
+    }}
 
-    .badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-    }
-    .badge-info    { background: #dbeafe; color: #1d4ed8; }
-    .badge-success { background: #dcfce7; color: #15803d; }
-    .badge-warning { background: #fef3c7; color: #92400e; }
-    .badge-danger  { background: #fee2e2; color: #991b1b; }
-    .badge-dark    { background: #e2e8f0; color: #1e293b; }
+    .badge {{
+        display: inline-block; padding: 5px 12px; border-radius: 999px;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em;
+    }}
+    .badge-info    {{ background: {COLORS['info_bg']};    color: {COLORS['info_text']}; }}
+    .badge-success {{ background: {COLORS['success_bg']}; color: {COLORS['success_text']}; }}
+    .badge-warning {{ background: {COLORS['warning_bg']}; color: {COLORS['warning_text']}; }}
+    .badge-danger  {{ background: {COLORS['danger_bg']};  color: {COLORS['danger_text']}; }}
+    .badge-dark    {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; }}
 
-    .student-form-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
+    .theme-toggle-row {{
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 12px; background: {COLORS['bg_elevated']};
+        border-radius: 12px; margin-bottom: 14px; border: 1px solid {COLORS['border']};
+    }}
+    .theme-toggle-row .lbl {{ font-size: 0.8rem; font-weight: 600; color: {COLORS['text_secondary']}; }}
+    .theme-toggle-btn {{
+        cursor: pointer; padding: 5px 10px; border-radius: 8px;
+        font-weight: 700; font-size: 0.75rem; border: 1px solid {COLORS['border']};
+        background: {COLORS['bg_panel']}; color: {COLORS['text_primary']};
+        transition: all 0.2s;
+    }}
+    .theme-toggle-btn.active {{
+        background: linear-gradient(135deg, {COLORS['accent']}, {COLORS['accent_2']});
+        border-color: transparent; color: white;
+    }}
+
+    .student-form-card {{
+        background: {COLORS['bg_panel']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 16px;
         padding: 20px;
         margin-bottom: 16px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 3px rgba(0,0,0,{"0.25" if IS_DARK else "0.04"});
         transition: all 0.2s ease;
-    }
-    .student-form-card:hover {
-        border-color: #c7d2fe;
-        box-shadow: 0 8px 24px rgba(79, 70, 229, 0.08);
-    }
-    .student-card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 14px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #f1f5f9;
-    }
-    .student-card-header .tag {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        color: white;
-        padding: 5px 12px;
-        border-radius: 8px;
-        font-size: 0.8rem;
-        font-weight: 700;
-    }
+    }}
+    .student-form-card:hover {{
+        border-color: {COLORS['accent']};
+        box-shadow: 0 10px 30px rgba(99,102,241,{"0.22" if IS_DARK else "0.10"});
+    }}
+    .student-card-header {{
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 14px; padding-bottom: 10px;
+        border-bottom: 1px solid {COLORS['border']};
+    }}
+    .student-card-header .tag {{
+        background: linear-gradient(135deg, {COLORS['accent']} 0%, {COLORS['accent_2']} 100%);
+        color: white; padding: 6px 14px; border-radius: 10px;
+        font-size: 0.8rem; font-weight: 700; letter-spacing: 0.01em;
+    }}
 
-    .penalty-box {
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-top: 14px;
-        border: 1px solid;
-    }
-    .penalty-box.on-time {
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-    }
-    .penalty-box.on-time h4 { color: #15803d; }
-    .penalty-box.late {
-        background: #fffbeb;
-        border-color: #fde68a;
-    }
-    .penalty-box.late h4 { color: #92400e; }
-    .penalty-box h4 {
-        margin: 0 0 6px 0;
-        font-size: 0.82rem;
-        font-weight: 700;
-    }
-    .penalty-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-top: 6px;
-    }
-    .penalty-item {
-        background: rgba(255,255,255,0.7);
-        padding: 8px 10px;
-        border-radius: 8px;
-    }
-    .penalty-item .pi-label {
-        font-size: 0.7rem;
-        color: #64748b;
-        font-weight: 500;
-    }
-    .penalty-item .pi-value {
-        font-size: 1.05rem;
-        font-weight: 800;
-        color: #0f172a;
-    }
+    .penalty-box {{
+        border-radius: 14px; padding: 14px 16px; margin-top: 14px; border: 1px solid;
+    }}
+    .penalty-box.on-time {{ background: {COLORS['penalty_ok_bg']}; border-color: {COLORS['penalty_ok_brd']}; }}
+    .penalty-box.on-time h4 {{ color: {COLORS['success_text']}; }}
+    .penalty-box.late    {{ background: {COLORS['penalty_lt_bg']}; border-color: {COLORS['penalty_lt_brd']}; }}
+    .penalty-box.late h4 {{ color: {COLORS['warning_text']}; }}
+    .penalty-box h4 {{ margin: 0 0 6px 0; font-size: 0.85rem; font-weight: 700; }}
+    .penalty-grid {{
+        display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;
+    }}
+    .penalty-item {{
+        background: {COLORS['penalty_item_bg']}; padding: 10px 12px; border-radius: 10px;
+        backdrop-filter: blur(6px);
+    }}
+    .penalty-item .pi-label {{ font-size: 0.7rem; color: {COLORS['text_muted']}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .penalty-item .pi-value {{ font-size: 1.15rem; font-weight: 800; color: {COLORS['text_primary']}; margin-top: 2px; }}
 
     [data-testid="stButton"] button,
     [data-testid="baseButton-secondary"],
-    [data-testid="baseButton-primary"] {
-        border-radius: 10px !important;
+    [data-testid="baseButton-primary"] {{
+        border-radius: 12px !important;
         font-weight: 600 !important;
         letter-spacing: -0.01em !important;
         transition: all 0.2s ease !important;
-        min-height: 42px;
-        padding: 8px 18px !important;
+        min-height: 44px !important;
+        padding: 10px 20px !important;
         border: none !important;
-    }
-    [data-testid="stButton"] button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(15,23,42,0.12) !important;
-    }
-    [data-testid="baseButton-primary"] {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
-        color: white !important;
-    }
-    [data-testid="baseButton-secondary"] {
-        background: #f1f5f9 !important;
-        color: #0f172a !important;
-    }
+        font-size: 0.9rem !important;
+    }}
+    [data-testid="stButton"] button:hover {{
+        transform: translateY(-1px) scale(1.01);
+        box-shadow: 0 8px 24px rgba(99,102,241,{"0.35" if IS_DARK else "0.18"}) !important;
+    }}
+    [data-testid="baseButton-primary"] {{
+        background: linear-gradient(135deg, {COLORS['accent']} 0%, {COLORS['accent_2']} 100%) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(99,102,241,{"0.4" if IS_DARK else "0.22"}) !important;
+    }}
+    [data-testid="baseButton-secondary"] {{
+        background: {COLORS['bg_elevated']} !important;
+        color: {COLORS['text_primary']} !important;
+        border: 1px solid {COLORS['border']} !important;
+    }}
+    [data-testid="baseButton-secondary"]:hover {{ background: {COLORS['bg_hover']} !important; }}
 
-    .locked-screen {
-        text-align: center;
-        padding: 60px 24px;
-        max-width: 560px;
-        margin: 40px auto;
-        background: white;
-        border-radius: 20px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 20px 60px rgba(15,23,42,0.08);
-    }
-    .locked-screen .icon {
-        font-size: 4rem;
-        margin-bottom: 12px;
-    }
-    .locked-screen h2 {
-        margin: 0 0 8px 0;
-        font-size: 1.6rem;
-        color: #0f172a;
-        font-weight: 800;
-    }
-    .locked-screen p {
-        color: #64748b;
-        font-size: 0.95rem;
-        margin: 0 0 20px 0;
-    }
-    .lock-days-grid {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-    }
-    .lock-day {
-        padding: 10px 16px;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-    .lock-day.active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-    .lock-day.inactive { background: #f1f5f9; color: #94a3b8; }
+    .locked-screen {{
+        text-align: center; padding: 60px 28px; max-width: 560px; margin: 40px auto;
+        background: {COLORS['bg_panel']}; border-radius: 22px;
+        border: 1px solid {COLORS['border']};
+        box-shadow: 0 20px 60px rgba(0,0,0,{"0.45" if IS_DARK else "0.08"});
+    }}
+    .locked-screen .icon {{ font-size: 4.2rem; margin-bottom: 12px; }}
+    .locked-screen h2 {{ margin: 0 0 8px 0; font-size: 1.75rem; color: {COLORS['text_primary']}; font-weight: 800; }}
+    .locked-screen p  {{ color: {COLORS['text_secondary']}; font-size: 0.95rem; margin: 0 0 20px 0; }}
+    .lock-days-grid {{
+        display: flex; gap: 10px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+    }}
+    .lock-day {{
+        padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;
+        border: 1px solid transparent;
+    }}
+    .lock-day.active   {{ background: {COLORS['success_bg']}; color: {COLORS['success_text']}; border-color: {COLORS['success_text']}; }}
+    .lock-day.inactive {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_muted']}; }}
 
     [data-testid="stTextInput"] > label,
     [data-testid="stTimeInput"] > label,
     [data-testid="stSelectbox"] > label,
     [data-testid="stDateInput"] > label,
     [data-testid="stNumberInput"] > label,
-    [data-testid="stCheckbox"] > label {
-        font-weight: 600 !important;
-        color: #334155 !important;
+    [data-testid="stCheckbox"] > label {{
+        font-weight: 600 !important; color: {COLORS['text_secondary']} !important;
         font-size: 0.85rem !important;
-    }
+    }}
     [data-testid="stTextInput"] input,
     [data-testid="stTimeInput"] input,
     [data-testid="stNumberInput"] input,
-    [data-testid="stDateInput"] input {
-        border-radius: 10px !important;
-        border: 1.5px solid #e2e8f0 !important;
-        padding: 8px 12px !important;
-        background: #f8fafc !important;
-    }
-    [data-testid="stTextInput"] input:focus,
-    [data-testid="stTimeInput"] input:focus {
-        border-color: #4f46e5 !important;
-        background: white !important;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
-    }
-    [data-testid="stSelectbox"] [data-baseweb="select"] {
-        border-radius: 10px !important;
-        border: 1.5px solid #e2e8f0 !important;
-        background: #f8fafc !important;
-    }
-
-    [data-testid="stTabs"] [data-baseweb="tab-list"] {
-        gap: 6px;
-        background: #f1f5f9;
-        padding: 6px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        border: 1px solid #e2e8f0;
-    }
-    [data-testid="stTabs"] [data-baseweb="tab"] {
-        border-radius: 8px !important;
-        background-color: transparent !important;
-        color: #475569 !important;
-        font-weight: 600 !important;
-        padding: 10px 18px !important;
-        height: auto !important;
-    }
-    [data-testid="stTabs"] [aria-selected="true"] {
-        background: #ffffff !important;
-        color: #4f46e5 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    .dataframe-table {
+    [data-testid="stDateInput"] input,
+    [data-baseweb="select"] > div,
+    [data-baseweb="base-input"] > div:first-child {{
         border-radius: 12px !important;
-        overflow: hidden;
-    }
+        border: 1.5px solid {COLORS['border']} !important;
+        padding: 6px 12px !important;
+        background: {COLORS['input_bg']} !important;
+        color: {COLORS['text_primary']} !important;
+    }}
+    [data-baseweb="select"] * {{ color: {COLORS['text_primary']} !important; }}
+    [data-testid="stTextInput"] input::placeholder {{ color: {COLORS['text_muted']} !important; opacity: 0.7; }}
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stTimeInput"] input:focus,
+    [data-testid="stNumberInput"] input:focus,
+    [data-testid="stDateInput"] input:focus,
+    [data-baseweb="select"]:focus-within > div {{
+        border-color: {COLORS['accent']} !important;
+        background: {COLORS['bg_panel']} !important;
+        box-shadow: 0 0 0 4px {"rgba(99,102,241,0.25)" if IS_DARK else "rgba(99,102,241,0.14)"} !important;
+        outline: none;
+    }}
 
-    .footer-brand {
-        text-align: center;
-        padding: 24px 12px 0 12px;
-        color: #94a3b8;
-        font-size: 0.78rem;
-        font-weight: 500;
-    }
-    .footer-brand strong { color: #64748b; }
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+        gap: 6px;
+        background: {COLORS['tab_bar_bg']};
+        padding: 7px;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        border: 1px solid {COLORS['border']};
+    }}
+    [data-testid="stTabs"] [data-baseweb="tab"] {{
+        border-radius: 10px !important;
+        background-color: transparent !important;
+        color: {COLORS['text_secondary']} !important;
+        font-weight: 600 !important;
+        padding: 10px 20px !important;
+        height: auto !important;
+        font-size: 0.9rem !important;
+    }}
+    [data-testid="stTabs"] [data-baseweb="tab"]:hover {{ color: {COLORS['text_primary']} !important; }}
+    [data-testid="stTabs"] [aria-selected="true"] {{
+        background: {COLORS['tab_active_bg']} !important;
+        color: {COLORS['accent']} !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,{"0.3" if IS_DARK else "0.08"});
+    }}
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span {{
+        color: {COLORS['text_primary']} !important;
+    }}
 
-    @media (max-width: 640px) {
-        .panel { padding: 16px; border-radius: 12px; }
-        .stat-card .stat-value { font-size: 1.35rem; }
-        .penalty-grid { grid-template-columns: 1fr; }
-    }
+    .dataframe-table {{ border-radius: 14px !important; overflow: hidden; }}
+
+    .footer-brand {{
+        text-align: center; padding: 28px 12px 8px 12px;
+        color: {COLORS['text_muted']}; font-size: 0.78rem; font-weight: 500;
+    }}
+    .footer-brand strong {{ color: {COLORS['text_secondary']}; }}
+
+    code, pre {{
+        background: {COLORS['bg_elevated']} !important;
+        color: {COLORS['accent'] if not IS_DARK else "#a5b4fc"} !important;
+        border-radius: 8px !important;
+        border: 1px solid {COLORS['border']} !important;
+    }}
+
+    ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb {{ background: {COLORS['scrollbar']}; border-radius: 10px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: {COLORS['accent']}; }}
+
+    div.stAlert > div {{
+        border: 1px solid {COLORS['border']} !important;
+        border-radius: 14px !important;
+        padding: 12px 14px !important;
+    }}
+
+    @media (max-width: 1024px) {{
+        .block-container {{ max-width: 100%; padding-left: 1rem; padding-right: 1rem; }}
+        .panel {{ padding: 18px; }}
+        .stat-card .stat-value {{ font-size: 1.5rem; }}
+    }}
+
+    @media (max-width: 768px) {{
+        .brand-header {{ padding: 22px 18px; margin: -0.8rem -0.8rem 16px -0.8rem; }}
+        .brand-header h1 {{ font-size: 1.3rem; }}
+        .panel {{ padding: 14px; border-radius: 14px; }}
+        .stat-card {{ padding: 14px; }}
+        .stat-card .stat-value {{ font-size: 1.25rem; }}
+        .stat-card .stat-icon {{ width: 38px; height: 38px; font-size: 1.1rem; margin-bottom: 8px; }}
+        .penalty-grid {{ grid-template-columns: 1fr; }}
+        .student-form-card {{ padding: 14px; }}
+        .locked-screen {{ padding: 36px 16px; margin: 20px auto; }}
+        .locked-screen h2 {{ font-size: 1.35rem; }}
+        [data-testid="stTabs"] [data-baseweb="tab"] {{ padding: 8px 12px !important; font-size: 0.8rem !important; }}
+    }}
+
+    @media (max-width: 480px) {{
+        .brand-header h1 {{ font-size: 1.15rem; }}
+        .stat-card .stat-value {{ font-size: 1.1rem; }}
+        .stat-card .stat-label {{ font-size: 0.7rem; }}
+        .footer-brand {{ font-size: 0.7rem; padding: 18px 6px 4px 6px; }}
+    }}
 </style>
 """
 st.markdown(PROFESSIONAL_UI, unsafe_allow_html=True)
@@ -360,6 +394,19 @@ DAY_NAMES = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes"
 
 
 def get_google_credentials():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.file",
+    ]
+
+    json_path = st.secrets.get("json_key_path", "")
+    if json_path and os.path.exists(json_path):
+        try:
+            return Credentials.from_service_account_file(json_path, scopes=scopes)
+        except Exception:
+            pass
+
     account = st.secrets.get("google_service_account", {})
     creds_dict = {
         "type": account.get("type", ""),
@@ -374,11 +421,6 @@ def get_google_credentials():
         "client_x509_cert_url": account.get("client_x509_cert_url", ""),
         "universe_domain": account.get("universe_domain", "googleapis.com"),
     }
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/drive.file",
-    ]
     return Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
 
@@ -1036,9 +1078,29 @@ def main():
     real_now = datetime.now()
 
     with st.sidebar:
+        st.markdown(f"""
+            <div class="theme-toggle-row">
+                <span class="lbl">🌓 Tema de la App</span>
+                <span>
+                    <button class="theme-toggle-btn {"active" if st.session_state.theme == "light" else ""}" onclick="window.location.href='?theme=light'">☀️ Claro</button>
+                    <button class="theme-toggle-btn {"active" if st.session_state.theme == "dark" else ""}" onclick="window.location.href='?theme=dark'">🌙 Oscuro</button>
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("☀️ Claro", key="btn_light", use_container_width=True):
+                st.session_state.theme = "light"
+                st.rerun()
+        with col2:
+            if st.button("🌙 Oscuro", key="btn_dark", use_container_width=True):
+                st.session_state.theme = "dark"
+                st.rerun()
+
         with st.expander("🧪 Modo Pruebas (Testing)", expanded=False):
             st.markdown("""
-                <p style="font-size:0.8rem;color:#64748b;margin:0 0 8px 0;">
+                <p style="font-size:0.8rem;margin:0 0 8px 0;">
                     Activa este modo para simular otros días/horarios y probar el sistema sin esperar a Lunes o Miércoles.
                 </p>
             """, unsafe_allow_html=True)
