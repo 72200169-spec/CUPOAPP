@@ -7,350 +7,372 @@ from googleapiclient.http import MediaFileUpload
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
 from reportlab.lib.units import cm
 import pandas as pd
 import os
 import tempfile
 
 st.set_page_config(
-    page_title="Control de Tardanzas - CupoApp",
-    page_icon="⏰",
-    layout="centered",
-    initial_sidebar_state="collapsed",
-    menu_items=None
+    page_title="CupoApp | Control de Tardanzas",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-MOBILE_CSS = """
+PROFESSIONAL_UI = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    * {
-        font-family: 'Inter', sans-serif;
-    }
-    
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+    * { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
+        background: #f8fafc;
     }
-    
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        max-width: 100%;
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
+
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stToolbar"] { right: 2rem; }
+
+    section[data-testid="stSidebar"] {
+        background: #ffffff !important;
+        border-right: 1px solid #e2e8f0;
+        padding-top: 0 !important;
     }
-    
-    @media (min-width: 768px) {
-        .block-container {
-            max-width: 720px;
-            padding-left: 1.5rem;
-            padding-right: 1.5rem;
-        }
+    section[data-testid="stSidebar"] > div:first-child { padding-top: 0; }
+
+    .brand-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        padding: 28px 24px 24px 24px;
+        margin: -1rem -1rem 20px -1rem;
+        color: white;
     }
-    
-    .main-header {
-        background: white;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        margin-bottom: 16px;
-        text-align: center;
-    }
-    
-    .main-header h1 {
+    .brand-header h1 {
         margin: 0;
-        font-size: 1.6rem;
+        font-size: 1.55rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        letter-spacing: -0.02em;
     }
-    
-    .main-header p {
-        margin: 8px 0 0 0;
-        color: #64748b;
-        font-size: 0.85rem;
+    .brand-header .tagline {
+        margin: 6px 0 0 0;
+        font-size: 0.82rem;
+        opacity: 0.9;
+        font-weight: 500;
     }
-    
-    .info-card {
-        background: white;
+
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        margin-bottom: 14px;
-        border-left: 4px solid #667eea;
-    }
-    
-    .info-card.success {
-        border-left-color: #10b981;
-    }
-    
-    .info-card.warning {
-        border-left-color: #f59e0b;
-    }
-    
-    .info-card.danger {
-        border-left-color: #ef4444;
-    }
-    
-    .info-card h3 {
-        margin: 0 0 8px 0;
-        font-size: 1rem;
-        font-weight: 700;
-        color: #1e293b;
-    }
-    
-    .info-card p {
-        margin: 0;
-        color: #475569;
-        font-size: 0.88rem;
-        line-height: 1.5;
-    }
-    
-    .student-card {
-        background: white;
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        margin-bottom: 14px;
-        border: 2px solid #e2e8f0;
+        padding: 18px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         transition: all 0.2s ease;
     }
-    
-    .student-card:hover {
-        border-color: #667eea;
+    .stat-card:hover {
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         transform: translateY(-2px);
     }
-    
-    .student-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-    }
-    
-    .student-number {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-    
-    .penalty-display {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    .stat-card .stat-icon {
+        width: 42px;
+        height: 42px;
         border-radius: 10px;
-        padding: 12px;
-        margin-top: 12px;
-        border: 1px solid #f59e0b;
-    }
-    
-    .penalty-display h4 {
-        margin: 0 0 6px 0;
-        font-size: 0.85rem;
-        color: #92400e;
-        font-weight: 700;
-    }
-    
-    .penalty-amount {
-        font-size: 1.4rem;
-        font-weight: 800;
-        color: #b45309;
-    }
-    
-    .penalty-exercise {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #78350f;
-    }
-    
-    div.stButton > button {
-        border-radius: 12px;
-        font-weight: 700;
-        transition: all 0.2s ease;
-        width: 100%;
-        padding: 12px 20px;
-        border: none;
-    }
-    
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    }
-    
-    div.stButton > button[data-testid="baseButton-secondary"] {
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-        color: white;
-    }
-    
-    div.stButton > button[data-testid="baseButton-secondary"]:hover {
-        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-    }
-    
-    .btn-add-more {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
-    }
-    
-    .btn-save {
-        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-        color: white;
-        font-size: 1.05rem;
-        padding: 16px !important;
-    }
-    
-    .btn-pdf {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-    }
-    
-    .total-card {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border-radius: 16px;
-        padding: 20px;
-        color: white;
-        text-align: center;
-        margin-bottom: 14px;
-        box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
-    }
-    
-    .total-card h2 {
-        margin: 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        opacity: 0.95;
-    }
-    
-    .total-amount {
-        font-size: 2.5rem;
-        font-weight: 800;
-        margin-top: 4px;
-    }
-    
-    .debt-card {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        border-radius: 16px;
-        padding: 20px;
-        color: white;
-        text-align: center;
-        margin-bottom: 14px;
-        box-shadow: 0 8px 30px rgba(239, 68, 68, 0.3);
-    }
-    
-    .remove-btn {
-        background: #fee2e2;
-        color: #dc2626;
-        border: none;
-        border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        cursor: pointer;
-        font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 1.3rem;
+        margin-bottom: 10px;
     }
-    
-    .remove-btn:hover {
-        background: #fecaca;
-    }
-    
-    [data-testid="stTextInput"] input,
-    [data-testid="stTimeInput"] input,
-    [data-testid="stSelectbox"] select {
-        border-radius: 10px;
-        border: 1.5px solid #e2e8f0;
-        padding: 8px 12px;
-    }
-    
-    [data-testid="stTextInput"] input:focus,
-    [data-testid="stTimeInput"] input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-    }
-    
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: white;
-        padding: 8px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        background-color: #f1f5f9;
+    .stat-card .stat-label {
+        font-size: 0.78rem;
         color: #64748b;
-        font-weight: 600;
-        padding: 8px 16px;
-        height: auto;
+        font-weight: 500;
+        margin: 0;
     }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 4px 0 0 0;
+        letter-spacing: -0.02em;
     }
-    
-    section[data-testid="stSidebar"] {
-        display: none;
+    .stat-card.primary .stat-icon { background: #eef2ff; color: #4f46e5; }
+    .stat-card.success .stat-icon { background: #dcfce7; color: #16a34a; }
+    .stat-card.warning .stat-icon { background: #fef3c7; color: #d97706; }
+    .stat-card.danger .stat-icon { background: #fee2e2; color: #dc2626; }
+
+    .panel {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        margin-bottom: 20px;
     }
-    
-    .status-tag {
+    .panel-title {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+    }
+    .panel-subtitle {
+        font-size: 0.82rem;
+        color: #64748b;
+        margin: 0 0 18px 0;
+    }
+
+    .badge {
         display: inline-block;
         padding: 4px 10px;
         border-radius: 20px;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+    .badge-info    { background: #dbeafe; color: #1d4ed8; }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger  { background: #fee2e2; color: #991b1b; }
+    .badge-dark    { background: #e2e8f0; color: #1e293b; }
+
+    .student-form-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: all 0.2s ease;
+    }
+    .student-form-card:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 8px 24px rgba(79, 70, 229, 0.08);
+    }
+    .student-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .student-card-header .tag {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
         font-weight: 700;
     }
-    
-    .status-pagado {
-        background: #dcfce7;
-        color: #166534;
+
+    .penalty-box {
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 14px;
+        border: 1px solid;
     }
-    
-    .status-ejercicio {
-        background: #dbeafe;
-        color: #1e40af;
+    .penalty-box.on-time {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
     }
-    
-    .status-deuda {
-        background: #fee2e2;
-        color: #991b1b;
+    .penalty-box.on-time h4 { color: #15803d; }
+    .penalty-box.late {
+        background: #fffbeb;
+        border-color: #fde68a;
     }
-    
-    .empty-state {
-        text-align: center;
-        padding: 40px 20px;
-        color: #94a3b8;
+    .penalty-box.late h4 { color: #92400e; }
+    .penalty-box h4 {
+        margin: 0 0 6px 0;
+        font-size: 0.82rem;
+        font-weight: 700;
     }
-    
-    .empty-state h3 {
-        margin: 16px 0 8px 0;
+    .penalty-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 6px;
+    }
+    .penalty-item {
+        background: rgba(255,255,255,0.7);
+        padding: 8px 10px;
+        border-radius: 8px;
+    }
+    .penalty-item .pi-label {
+        font-size: 0.7rem;
         color: #64748b;
+        font-weight: 500;
+    }
+    .penalty-item .pi-value {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    [data-testid="stButton"] button,
+    [data-testid="baseButton-secondary"],
+    [data-testid="baseButton-primary"] {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.01em !important;
+        transition: all 0.2s ease !important;
+        min-height: 42px;
+        padding: 8px 18px !important;
+        border: none !important;
+    }
+    [data-testid="stButton"] button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15,23,42,0.12) !important;
+    }
+    [data-testid="baseButton-primary"] {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+        color: white !important;
+    }
+    [data-testid="baseButton-secondary"] {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
+
+    .locked-screen {
+        text-align: center;
+        padding: 60px 24px;
+        max-width: 560px;
+        margin: 40px auto;
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 20px 60px rgba(15,23,42,0.08);
+    }
+    .locked-screen .icon {
+        font-size: 4rem;
+        margin-bottom: 12px;
+    }
+    .locked-screen h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.6rem;
+        color: #0f172a;
+        font-weight: 800;
+    }
+    .locked-screen p {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0 0 20px 0;
+    }
+    .lock-days-grid {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    .lock-day {
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .lock-day.active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .lock-day.inactive { background: #f1f5f9; color: #94a3b8; }
+
+    [data-testid="stTextInput"] > label,
+    [data-testid="stTimeInput"] > label,
+    [data-testid="stSelectbox"] > label,
+    [data-testid="stDateInput"] > label,
+    [data-testid="stNumberInput"] > label,
+    [data-testid="stCheckbox"] > label {
+        font-weight: 600 !important;
+        color: #334155 !important;
+        font-size: 0.85rem !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stTimeInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input {
+        border-radius: 10px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        padding: 8px 12px !important;
+        background: #f8fafc !important;
+    }
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stTimeInput"] input:focus {
+        border-color: #4f46e5 !important;
+        background: white !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] {
+        border-radius: 10px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        background: #f8fafc !important;
+    }
+
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 6px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        border-radius: 8px !important;
+        background-color: transparent !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+        padding: 10px 18px !important;
+        height: auto !important;
+    }
+    [data-testid="stTabs"] [aria-selected="true"] {
+        background: #ffffff !important;
+        color: #4f46e5 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .dataframe-table {
+        border-radius: 12px !important;
+        overflow: hidden;
+    }
+
+    .footer-brand {
+        text-align: center;
+        padding: 24px 12px 0 12px;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 500;
+    }
+    .footer-brand strong { color: #64748b; }
+
+    @media (max-width: 640px) {
+        .panel { padding: 16px; border-radius: 12px; }
+        .stat-card .stat-value { font-size: 1.35rem; }
+        .penalty-grid { grid-template-columns: 1fr; }
     }
 </style>
 """
+st.markdown(PROFESSIONAL_UI, unsafe_allow_html=True)
 
-st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+
+SCHEDULES = {
+    0: ("Lunes", time(19, 10), time(20, 30)),
+    2: ("Miércoles", time(17, 30), time(20, 30)),
+}
+VALID_WEEKDAYS = set(SCHEDULES.keys())
+DAY_NAMES = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
 
 
 def get_google_credentials():
+    account = st.secrets.get("google_service_account", {})
     creds_dict = {
-        "type": st.secrets.get("google_service_account", {}).get("type", ""),
-        "project_id": st.secrets.get("google_service_account", {}).get("project_id", ""),
-        "private_key_id": st.secrets.get("google_service_account", {}).get("private_key_id", ""),
-        "private_key": st.secrets.get("google_service_account", {}).get("private_key", "").replace("\\n", "\n"),
-        "client_email": st.secrets.get("google_service_account", {}).get("client_email", ""),
-        "client_id": st.secrets.get("google_service_account", {}).get("client_id", ""),
-        "auth_uri": st.secrets.get("google_service_account", {}).get("auth_uri", ""),
-        "token_uri": st.secrets.get("google_service_account", {}).get("token_uri", ""),
-        "auth_provider_x509_cert_url": st.secrets.get("google_service_account", {}).get("auth_provider_x509_cert_url", ""),
-        "client_x509_cert_url": st.secrets.get("google_service_account", {}).get("client_x509_cert_url", ""),
-        "universe_domain": st.secrets.get("google_service_account", {}).get("universe_domain", "googleapis.com"),
+        "type": account.get("type", ""),
+        "project_id": account.get("project_id", ""),
+        "private_key_id": account.get("private_key_id", ""),
+        "private_key": account.get("private_key", ""),
+        "client_email": account.get("client_email", ""),
+        "client_id": account.get("client_id", ""),
+        "auth_uri": account.get("auth_uri", ""),
+        "token_uri": account.get("token_uri", ""),
+        "auth_provider_x509_cert_url": account.get("auth_provider_x509_cert_url", ""),
+        "client_x509_cert_url": account.get("client_x509_cert_url", ""),
+        "universe_domain": account.get("universe_domain", "googleapis.com"),
     }
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -366,31 +388,23 @@ def get_spreadsheet():
     sheet_key = st.secrets.get("sheet_key", "")
     if sheet_key:
         return gc.open_by_key(sheet_key)
-    sheet_name = st.secrets.get("sheet_name", "ControlTardanzas")
-    return gc.open(sheet_name)
+    return gc.open(st.secrets.get("sheet_name", "ControlTardanzas"))
 
 
-def get_or_create_worksheet(date_str):
+def get_or_create_worksheet(date_iso):
     sh = get_spreadsheet()
     try:
-        ws = sh.worksheet(date_str)
+        ws = sh.worksheet(date_iso)
     except gspread.exceptions.WorksheetNotFound:
-        ws = sh.add_worksheet(title=date_str, rows=100, cols=10)
+        ws = sh.add_worksheet(title=date_iso, rows=200, cols=10)
         headers = [
-            "Nombres y Apellidos",
-            "Fecha",
-            "Hora de Ingreso",
-            "Horario de Control",
-            "Tiempo de Tardanza (min)",
-            "Monto Calculado (S/)",
-            "Ejercicio (repeticiones)",
-            "Tipo de Pago",
-            "Estado",
-            "Monto Final (S/)",
+            "Nombres y Apellidos", "Fecha", "Hora de Ingreso", "Horario de Control",
+            "Tiempo de Tardanza (min)", "Monto Calculado (S/)", "Ejercicio (repeticiones)",
+            "Tipo de Pago", "Estado", "Monto Final (S/)",
         ]
         ws.insert_row(headers, 1)
         ws.format("A1:J1", {
-            "backgroundColor": {"red": 0.4, "green": 0.49, "blue": 0.92},
+            "backgroundColor": {"red": 0.31, "green": 0.27, "blue": 0.90},
             "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True},
             "horizontalAlignment": "CENTER",
         })
@@ -402,183 +416,140 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def detect_day_and_schedule():
-    now = datetime.now()
-    weekday = now.weekday()
-    schedules = {
-        0: ("Lunes", time(19, 10), time(20, 30)),
-        2: ("Miércoles", time(17, 30), time(20, 30)),
-    }
-    if weekday in schedules:
-        return schedules[weekday][0], schedules[weekday][1], schedules[weekday][2], True
+def detect_day_and_schedule(weekday):
+    if weekday in SCHEDULES:
+        name, start, end = SCHEDULES[weekday]
+        return name, start, end, True
     return None, None, None, False
 
 
-def calculate_penalty(arrival_time, start_time, end_time):
-    arrival_dt = datetime.combine(datetime.now().date(), arrival_time)
-    start_dt = datetime.combine(datetime.now().date(), start_time)
-    end_dt = datetime.combine(datetime.now().date(), end_time)
-    
+def calculate_penalty(arrival_time, start_time, end_time, ref_date):
+    arrival_dt = datetime.combine(ref_date, arrival_time)
+    start_dt = datetime.combine(ref_date, start_time)
+    end_dt = datetime.combine(ref_date, end_time)
+
     if arrival_time <= start_time:
         return 0, 0.0, 0
-    
-    if arrival_time > end_time:
-        effective_arrival = end_dt
-    else:
-        effective_arrival = arrival_dt
-    
+
+    effective_arrival = end_dt if arrival_time > end_time else arrival_dt
     delay_minutes = max(0, int((effective_arrival - start_dt).total_seconds() / 60))
-    
-    if delay_minutes > 0:
-        money_blocks = (delay_minutes + 9) // 10
-        money_amount = money_blocks * 0.50
-    else:
-        money_amount = 0.0
-    
+
+    money_blocks = (delay_minutes + 9) // 10 if delay_minutes > 0 else 0
+    money_amount = money_blocks * 0.50
     exercise_reps = delay_minutes
-    
     return delay_minutes, money_amount, exercise_reps
 
 
 def generate_pdf(date_str, records, schedule_name):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf_path = tmp.name
-    
+
     doc = SimpleDocTemplate(
-        pdf_path,
-        pagesize=A4,
-        rightMargin=2 * cm,
-        leftMargin=2 * cm,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
+        pdf_path, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
     )
-    
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "CustomTitle",
-        parent=styles["Heading1"],
-        fontSize=20,
-        textColor=colors.HexColor("#4f46e5"),
-        alignment=1,
-        spaceAfter=6,
-        fontName="Helvetica-Bold",
-    )
-    subtitle_style = ParagraphStyle(
-        "CustomSubtitle",
-        parent=styles["Normal"],
-        fontSize=11,
-        textColor=colors.HexColor("#64748b"),
-        alignment=1,
-        spaceAfter=20,
-    )
-    h4_style = ParagraphStyle(
-        "H4",
-        parent=styles["Heading4"],
-        fontSize=12,
-        textColor=colors.HexColor("#1e293b"),
-        spaceBefore=8,
-        spaceAfter=6,
-        fontName="Helvetica-Bold",
-    )
-    
+    title_style = ParagraphStyle("T", parent=styles["Heading1"], fontSize=20,
+        textColor=colors.HexColor("#4f46e5"), alignment=1, spaceAfter=4, fontName="Helvetica-Bold")
+    subtitle_style = ParagraphStyle("S", parent=styles["Normal"], fontSize=10.5,
+        textColor=colors.HexColor("#64748b"), alignment=1, spaceAfter=18)
+    h4_style = ParagraphStyle("H4", parent=styles["Heading4"], fontSize=12.5,
+        textColor=colors.HexColor("#0f172a"), spaceBefore=10, spaceAfter=8, fontName="Helvetica-Bold")
+
     story = []
     story.append(Paragraph("REPORTE DE TARDANZAS", title_style))
-    story.append(Paragraph(f"Fecha: {date_str} | Horario: {schedule_name}", subtitle_style))
-    
+    story.append(Paragraph(f"Fecha: {date_str}  |  Horario: {schedule_name}", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e2e8f0"),
+        spaceBefore=2, spaceAfter=14))
+
     total_money = 0.0
     total_debt = 0.0
-    paid_count = 0
-    exercise_count = 0
-    debt_count = 0
-    
-    table_data = [["#", "Nombres y Apellidos", "Horario Ingreso", "Tardanza", "Monto S/", "Ejercicio", "Estado"]]
-    
+    paid_count = exercise_count = debt_count = ontime_count = 0
+
+    table_data = [["#", "Nombres y Apellidos", "Ingreso", "Tardanza", "Monto S/", "Ejercicio", "Estado"]]
     for i, r in enumerate(records, 1):
-        row = [
-            str(i),
-            r.get("Nombre", ""),
-            r.get("Hora Ingreso", ""),
-            f"{r.get('Tiempo Tardanza (min)', 0)} min",
-            f"S/ {r.get('Monto Final (S/)', 0.0):.2f}",
+        table_data.append([
+            str(i), r.get("Nombres y Apellidos", ""), r.get("Hora de Ingreso", ""),
+            f"{r.get('Tiempo de Tardanza (min)', 0)} min",
+            f"S/ {float(r.get('Monto Final (S/)', 0.0)):.2f}",
             f"{r.get('Ejercicio (repeticiones)', 0)} reps",
             r.get("Estado", ""),
-        ]
-        table_data.append(row)
-        
-        monto_final = float(r.get("Monto Final (S/)", 0.0))
-        estado = r.get("Estado", "")
-        tipo_pago = r.get("Tipo de Pago", "")
-        
-        if tipo_pago == "Pagar Dinero":
-            total_money += monto_final
-            paid_count += 1
-        elif tipo_pago == "Realizar Ejercicio":
+        ])
+        mf = float(r.get("Monto Final (S/)", 0.0))
+        mc = float(r.get("Monto Calculado (S/)", 0.0))
+        tp = r.get("Tipo de Pago", "")
+        est = r.get("Estado", "")
+        if tp == "Pagar Dinero":
+            total_money += mf; paid_count += 1
+        elif tp == "Realizar Ejercicio":
             exercise_count += 1
-        elif "Deuda" in estado:
-            total_debt += float(r.get("Monto Calculado (S/)", 0.0))
-            debt_count += 1
-    
-    col_widths = [0.8 * cm, 6 * cm, 2.5 * cm, 2 * cm, 2 * cm, 2 * cm, 2.8 * cm]
-    table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    
+        elif "Deuda" in est:
+            total_debt += mc; debt_count += 1
+        else:
+            ontime_count += 1
+
+    table = Table(table_data, repeatRows=1, hAlign="CENTER",
+        colWidths=[0.9*cm, 6.2*cm, 2.3*cm, 2*cm, 2*cm, 2*cm, 2.6*cm])
     table_style = [
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4f46e5")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 8.5),
-        ("FONTSIZE", (0, 1), (-1, -1), 7.5),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("ALIGN", (1, 1), (1, -1), "LEFT"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4f46e5")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,0), 8.5),
+        ("FONTSIZE", (0,1), (-1,-1), 7.8),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("ALIGN", (1,1), (1,-1), "LEFT"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.white]),
+        ("TOPPADDING", (0,0), (-1,-1), 7),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
     ]
-    
     for i, r in enumerate(records, 1):
-        estado = r.get("Estado", "")
-        if "Deuda" in estado:
-            table_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fef2f2")))
-        elif r.get("Tipo de Pago") == "Realizar Ejercicio":
-            table_style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#eff6ff")))
-    
+        est = r.get("Estado", "")
+        tp = r.get("Tipo de Pago", "")
+        if "Deuda" in est:
+            table_style.append(("BACKGROUND", (0,i), (-1,i), colors.HexColor("#fef2f2")))
+        elif tp == "Realizar Ejercicio":
+            table_style.append(("BACKGROUND", (0,i), (-1,i), colors.HexColor("#eff6ff")))
+        elif tp == "Pagar Dinero":
+            table_style.append(("BACKGROUND", (0,i), (-1,i), colors.HexColor("#f0fdf4")))
     table.setStyle(TableStyle(table_style))
     story.append(table)
-    
-    story.append(Spacer(1, 0.8 * cm))
-    story.append(Paragraph("RESUMEN", h4_style))
-    
+
+    story.append(Spacer(1, 0.8*cm))
+    story.append(Paragraph("RESUMEN DEL DÍA", h4_style))
+
     summary_data = [
-        ["Detalle", "Cantidad / Monto"],
-        ["Total Alumnos Registrados", str(len(records))],
-        ["Alumnos que Pagaron", str(paid_count)],
+        ["Detalle", "Valor"],
+        ["Total de Alumnos Registrados", str(len(records))],
+        ["Alumnos a Tiempo", str(ontime_count)],
+        ["Alumnos que Pagaron", f"{paid_count}  (S/ {total_money:.2f})"],
         ["Alumnos que Hicieron Ejercicio", str(exercise_count)],
-        ["Alumnos con Deuda", str(debt_count)],
-        ["Dinero Recaudado (S/)", f"S/ {total_money:.2f}"],
-        ["Deuda Pendiente (S/)", f"S/ {total_debt:.2f}"],
+        ["Alumnos con Deuda", f"{debt_count}  (S/ {total_debt:.2f} pendiente)"],
+        ["Total Recaudado (S/)", f"S/ {total_money:.2f}"],
     ]
-    
-    summary_table = Table(summary_data, colWidths=[8 * cm, 6 * cm])
+    summary_table = Table(summary_data, colWidths=[8.5*cm, 8.5*cm], hAlign="LEFT")
     summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#334155")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
-        ("ALIGN", (1, 1), (1, -1), "CENTER"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("BACKGROUND", (0, 5), (1, 5), colors.HexColor("#dcfce7")),
-        ("BACKGROUND", (0, 6), (1, 6), colors.HexColor("#fef2f2")),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#0f172a")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTNAME", (0,1), (0,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9.5),
+        ("ALIGN", (1,1), (1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
+        ("BACKGROUND", (0,-1), (1,-1), colors.HexColor("#dcfce7")),
+        ("BACKGROUND", (0,-2), (1,-2), colors.HexColor("#fee2e2")),
+        ("TOPPADDING", (0,0), (-1,-1), 8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
     ]))
     story.append(summary_table)
-    
-    story.append(Spacer(1, 1.5 * cm))
-    story.append(Paragraph("___________________________", ParagraphStyle("sig", parent=styles["Normal"], alignment=1, textColor=colors.HexColor("#475569"))))
-    story.append(Paragraph("Firma y Sello del Encargado", ParagraphStyle("sig-label", parent=styles["Normal"], alignment=1, textColor=colors.HexColor("#64748b"), fontSize=10)))
-    
+
+    story.append(Spacer(1, 2*cm))
+    story.append(HRFlowable(width="35%", thickness=0.8, color=colors.HexColor("#64748b"), hAlign="CENTER"))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Paragraph("Firma del Encargado", ParagraphStyle("sig",
+        parent=styles["Normal"], alignment=1, textColor=colors.HexColor("#475569"), fontSize=9)))
+
     doc.build(story)
     return pdf_path, total_money, total_debt
 
@@ -586,349 +557,538 @@ def generate_pdf(date_str, records, schedule_name):
 def upload_to_drive(pdf_path, file_name):
     drive_service = get_drive_service()
     folder_id = st.secrets.get("drive_folder_id", "")
-    
-    file_metadata = {
-        "name": file_name,
-        "mimeType": "application/pdf",
-    }
+    file_metadata = {"name": file_name, "mimeType": "application/pdf"}
     if folder_id:
         file_metadata["parents"] = [folder_id]
-    
     media = MediaFileUpload(pdf_path, mimetype="application/pdf")
-    file = drive_service.files().create(body=file_metadata, media_body=media, fields="id,webViewLink").execute()
+    file = drive_service.files().create(body=file_metadata, media_body=media,
+        fields="id,webViewLink").execute()
     return file.get("webViewLink", "")
 
 
-def main():
+def locked_view(bot_email, real_now):
     st.markdown("""
-        <div class="main-header">
-            <h1>⏰ Control de Tardanzas</h1>
-            <p>CupoApp - Registro y gestión de puntualidad</p>
+        <div class="brand-header">
+            <h1>🎓 CupoApp</h1>
+            <div class="tagline">Sistema de Control de Tardanzas · UC</div>
         </div>
     """, unsafe_allow_html=True)
-    
-    bot_email = st.secrets.get("google_service_account", {}).get("client_email", "bot-tardanzas@true-ion-506204-h6.iam.gserviceaccount.com")
-    has_sheet_key = bool(st.secrets.get("sheet_key", ""))
-    has_drive_folder = bool(st.secrets.get("drive_folder_id", ""))
-    
-    if has_sheet_key and has_drive_folder:
-        st.markdown(f"""
-            <div class="info-card success">
-                <h3>🔗 Configuración Detectada</h3>
-                <p>✅ Sheet ID y Drive Folder ID están configurados.</p>
-                <p>⚠️ Asegúrate de <strong>compartir</strong> tu hoja de Google Sheet <strong>y</strong> tu carpeta de Drive con este correo (permiso Editor):</p>
-                <p style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-top:6px;font-family:monospace;font-weight:600;">{bot_email}</p>
+
+    weekday = real_now.weekday()
+    st.markdown(f"""
+        <div class="locked-screen">
+            <div class="icon">🔒</div>
+            <h2>Sistema Bloqueado</h2>
+            <p>Hoy es <strong>{DAY_NAMES[weekday]}</strong>. El sistema de control solo está disponible los días <strong>Lunes</strong> y <strong>Miércoles</strong>.</p>
+            <div class="lock-days-grid">
+                <div class="lock-day active">Lunes 19:10 – 20:30</div>
+                <div class="lock-day active">Miércoles 17:30 – 20:30</div>
+                <div class="lock-day inactive">Martes · Jueves · Viernes</div>
+            </div>
+            <p style="font-size:0.82rem;">Regresar en el día programado para habilitar el registro.</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    with st.sidebar:
+        st.markdown("""
+            <div class="brand-header" style="border-radius:0;">
+                <h1>🎓 CupoApp</h1>
+                <div class="tagline">Sistema de Control de Tardanzas</div>
             </div>
         """, unsafe_allow_html=True)
-    else:
         st.markdown(f"""
-            <div class="info-card warning">
-                <h3>⚠️ Verifica tu Configuración</h3>
-                <p>Antes de usar la app, revisa tu archivo <code>.streamlit/secrets.toml</code>.</p>
-                <p>Comparte el Sheet y la carpeta Drive con:</p>
-                <p style="background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-top:6px;font-family:monospace;font-weight:600;">{bot_email}</p>
+            <div style="padding:6px;">
+                <p style="margin:0;font-size:0.8rem;color:#64748b;">Fecha actual:</p>
+                <p style="margin:2px 0 14px 0;font-weight:700;color:#0f172a;">
+                    {DAY_NAMES[weekday]}, {real_now.strftime('%d/%m/%Y %H:%M')}
+                </p>
+                <div class="badge badge-danger" style="margin-bottom:14px;">SISTEMA BLOQUEADO</div>
             </div>
         """, unsafe_allow_html=True)
-    
-    today = datetime.now()
-    date_str = today.strftime("%d/%m/%Y")
-    date_iso = today.strftime("%Y-%m-%d")
-    
-    day_name, default_start, default_end, is_scheduled_day = detect_day_and_schedule()
-    
-    if is_scheduled_day:
-        schedule_name = f"{day_name} ({default_start.strftime('%H:%M')} - {default_end.strftime('%H:%M')})"
-        start_time = default_start
-        end_time = default_end
-        st.markdown(f"""
-            <div class="info-card success">
-                <h3>📅 Día de Control Automático Detectado</h3>
-                <p><strong>{day_name}</strong> | Horario: <strong>{default_start.strftime('%I:%M %p')} - {default_end.strftime('%I:%M %p')}</strong></p>
-                <p>Fecha: <strong>{date_str}</strong></p>
+        with st.expander("🛠️ Configuración Google", expanded=False):
+            st.markdown("Comparte Sheet y carpeta Drive con:")
+            st.code(bot_email, language=None)
+
+    st.markdown('<div class="footer-brand">© 2026 <strong>CupoApp</strong> · Taller de Investigación UC</div>',
+        unsafe_allow_html=True)
+
+
+def main_view(ref_datetime, is_test_mode, real_now):
+    with st.sidebar:
+        st.markdown("""
+            <div class="brand-header" style="border-radius:0;">
+                <h1>🎓 CupoApp</h1>
+                <div class="tagline">Sistema de Control de Tardanzas</div>
             </div>
         """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-            <div class="info-card warning">
-                <h3>📅 Selección Manual de Horario</h3>
-                <p>Hoy no es día de control programado. Selecciona el horario a utilizar:</p>
-            </div>
-        """, unsafe_allow_html=True)
-        schedule_options = {
-            "Lunes (19:10 - 20:30)": (time(19, 10), time(20, 30)),
-            "Miércoles (17:30 - 20:30)": (time(17, 30), time(20, 30)),
-        }
-        selected = st.selectbox("Selecciona el horario:", list(schedule_options.keys()))
-        schedule_name = selected
-        start_time, end_time = schedule_options[selected]
-    
-    if "num_students" not in st.session_state:
-        st.session_state.num_students = 1
-    
-    st.markdown('<div style="margin-bottom: 12px;"></div>', unsafe_allow_html=True)
-    
-    records = []
-    
-    total_collected = 0.0
-    total_debt = 0.0
-    
-    for idx in range(st.session_state.num_students):
-        with st.container():
-            st.markdown(f"""
-                <div class="student-card">
-                    <div class="student-header">
-                        <span class="student-number">👤 Alumno #{idx + 1}</span>
-                    </div>
+
+        if is_test_mode:
+            st.markdown("""
+                <div class="badge badge-warning" style="margin-bottom:12px;display:block;text-align:center;">
+                    🧪 MODO PRUEBAS ACTIVADO
+                </div>
             """, unsafe_allow_html=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                name_key = f"name_{idx}"
-                if name_key not in st.session_state:
-                    st.session_state[name_key] = ""
-                name = st.text_input("Nombres y Apellidos:", placeholder="Ej: Juan Pérez", key=name_key, label_visibility="visible")
-            
-            with col2:
-                time_key = f"time_{idx}"
-                if time_key not in st.session_state:
-                    st.session_state[time_key] = datetime.now().time()
-                arrival = st.time_input("Hora de Ingreso:", value=st.session_state[time_key], key=time_key, label_visibility="visible")
-                if isinstance(arrival, datetime):
-                    arrival_time_val = arrival.time()
-                else:
-                    arrival_time_val = arrival
-            
-            delay_min, money_amt, exercise_reps = calculate_penalty(arrival_time_val, start_time, end_time)
-            
-            pay_key = f"pay_{idx}"
-            if pay_key not in st.session_state:
-                st.session_state[pay_key] = "Sin Pago / Deuda" if money_amt > 0 else "Pagar Dinero"
-            pay_options = ["Pagar Dinero", "Realizar Ejercicio", "Sin Pago / Deuda"]
-            payment_type = st.selectbox("Tipo de Pago / Resolución:", pay_options, key=pay_key, label_visibility="visible")
-            
-            final_amount = 0.0
-            estado = ""
-            
-            if payment_type == "Pagar Dinero":
-                final_amount = money_amt
-                estado = f"Pagado (S/ {money_amt:.2f})"
-                total_collected += money_amt
-            elif payment_type == "Realizar Ejercicio":
-                final_amount = 0.0
-                estado = f"Ejercicio Realizado ({exercise_reps} reps)"
-            else:
-                final_amount = 0.0
-                if money_amt > 0:
-                    estado = f"Con Deuda (S/ {money_amt:.2f})"
-                    total_debt += money_amt
-                else:
-                    estado = "A Tiempo"
-            
-            if delay_min > 0:
-                st.markdown(f"""
-                    <div class="penalty-display">
-                        <h4>⚠️ Penalidad Calculada</h4>
-                        <div class="penalty-amount">Tardanza: {delay_min} min</div>
-                        <div class="penalty-amount">S/ {money_amt:.2f}</div>
-                        <div class="penalty-exercise">ó {exercise_reps} repeticiones</div>
+
+        st.markdown(f"""
+            <div style="padding:6px;">
+                <p style="margin:0;font-size:0.76rem;color:#64748b;font-weight:500;">
+                    {"Fecha/Hora Simulada" if is_test_mode else "Fecha y Hora Actual"}
+                </p>
+                <p style="margin:2px 0 4px 0;font-weight:800;color:#0f172a;font-size:1.02rem;">
+                    {DAY_NAMES[ref_datetime.weekday()]}, {ref_datetime.strftime('%d/%m/%Y')}
+                </p>
+                <p style="margin:0 0 14px 0;color:#4f46e5;font-weight:700;font-size:1.15rem;">
+                    {ref_datetime.strftime('%H:%M')}
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("📅 Horarios Oficiales"):
+            st.markdown("""
+                <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:10px 12px;border-radius:8px;">
+                        <span style="font-weight:700;">Lunes</span>
+                        <span class="badge badge-info">19:10 – 20:30</span>
                     </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                    <div class="penalty-display" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border-color: #22c55e;">
-                        <h4 style="color: #166534;">✅ Alumno a Tiempo</h4>
-                        <div class="penalty-amount" style="color: #15803d;">Sin penalidad</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;padding:10px 12px;border-radius:8px;">
+                        <span style="font-weight:700;">Miércoles</span>
+                        <span class="badge badge-info">17:30 – 20:30</span>
                     </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with st.expander("💸 Reglas de Penalidad"):
+            st.markdown("""
+                <div style="padding:4px 0;font-size:0.82rem;color:#334155;line-height:1.55;">
+                    <p style="margin:0 0 8px 0;"><strong>Dinero:</strong> S/ 0.50 por cada bloque de 10 min (o fracción).</p>
+                    <p style="margin:0 0 8px 0;"><strong>Ejercicio:</strong> 1 min de tardanza = 1 repetición. Saldará la deuda monetaria total.</p>
+                    <p style="margin:0;"><strong>Deuda:</strong> Si no paga ni hace ejercicio, queda deudor del monto calculado.</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with st.expander("🔗 Configuración Google"):
+            bot_email = st.secrets.get("google_service_account", {}).get("client_email", "-")
+            st.markdown("Comparte tu **Sheet** y **carpeta Drive** con este correo (Editor):")
+            st.code(bot_email, language=None)
+            sk = st.secrets.get("sheet_key", "-")
+            df = st.secrets.get("drive_folder_id", "-")
+            st.markdown(f"**Sheet ID:** `{sk[:12]}...`\n\n**Drive Folder ID:** `{df[:12]}...`")
+
+    date_str = ref_datetime.strftime("%d/%m/%Y")
+    date_iso = ref_datetime.strftime("%Y-%m-%d")
+    weekday = ref_datetime.weekday()
+    day_name, default_start, default_end, _ = detect_day_and_schedule(weekday)
+    schedule_name = f"{day_name} ({default_start.strftime('%H:%M')} - {default_end.strftime('%H:%M')})"
+    start_time, end_time = default_start, default_end
+
+    st.markdown("""
+        <div class="brand-header" style="margin-bottom:22px;">
+            <h1>🎓 Control de Tardanzas</h1>
+            <div class="tagline">CupoApp · Registro oficial de puntualidad</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    with sc1:
+        st.markdown(f"""
+            <div class="stat-card primary">
+                <div class="stat-icon">📅</div>
+                <p class="stat-label">Día de Control</p>
+                <p class="stat-value">{day_name}</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with sc2:
+        st.markdown(f"""
+            <div class="stat-card warning">
+                <div class="stat-icon">⏰</div>
+                <p class="stat-label">Horario</p>
+                <p class="stat-value" style="font-size:1.1rem;margin-top:10px;">
+                    {default_start.strftime('%H:%M')} – {default_end.strftime('%H:%M')}
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+    with sc3:
+        st.markdown(f"""
+            <div class="stat-card success">
+                <div class="stat-icon">🗓️</div>
+                <p class="stat-label">Fecha</p>
+                <p class="stat-value" style="font-size:1.1rem;margin-top:10px;">{date_str}</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with sc4:
+        badge_class = "badge-success" if is_test_mode else "badge-info"
+        st.markdown(f"""
+            <div class="stat-card danger">
+                <div class="stat-icon">{"🧪" if is_test_mode else "⚡"}</div>
+                <p class="stat-label">Estado</p>
+                <p class="stat-value" style="font-size:1rem;margin-top:8px;">
+                    <span class="badge {badge_class}" style="font-size:0.72rem;">
+                        {"MODO PRUEBAS" if is_test_mode else "EN VIVO"}
+                    </span>
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    tab_reg, tab_hist, tab_info = st.tabs(["📝 Registro de Tardanzas", "📊 Historial del Día", "ℹ️ Información"])
+
+    with tab_info:
+        info1, info2 = st.columns([1.3, 1])
+        with info1:
+            st.markdown("""
+                <div class="panel">
+                    <h3 class="panel-title">📘 Guía Rápida</h3>
+                    <p class="panel-subtitle">Pasos para registrar correctamente una tardanza</p>
+                    <ol style="color:#334155;line-height:1.85;font-size:0.92rem;margin:0;padding-left:20px;">
+                        <li>Ingresa los <strong>Nombres y Apellidos</strong> completos.</li>
+                        <li>Verifica la <strong>Hora de Ingreso</strong> (se sugiere la hora actual).</li>
+                        <li>Selecciona la <strong>forma de resolver</strong> la penalidad.</li>
+                        <li>Agrega más alumnos con <strong>+ Agregar Tardón</strong> si llegaron varios a la vez.</li>
+                        <li>Presiona <strong>Guardar Registros</strong> para enviar a Google Sheets.</li>
+                        <li>Al finalizar genera el <strong>Reporte PDF</strong> y se subirá automáticamente a Drive.</li>
+                    </ol>
+                </div>
+            """, unsafe_allow_html=True)
+        with info2:
+            st.markdown("""
+                <div class="panel">
+                    <h3 class="panel-title">💸 Tabla de Penalidades</h3>
+                    <p class="panel-subtitle">Bloques de 10 minutos · S/ 0.50 cada uno</p>
+            """, unsafe_allow_html=True)
+            rows_df = pd.DataFrame([
+                ["00 - 10 min", "S/ 0.50", "10 reps"],
+                ["11 - 20 min", "S/ 1.00", "20 reps"],
+                ["21 - 30 min", "S/ 1.50", "30 reps"],
+                ["31 - 40 min", "S/ 2.00", "40 reps"],
+                ["41 - 50 min", "S/ 2.50", "50 reps"],
+                ["51 - 60 min", "S/ 3.00", "60 reps"],
+            ], columns=["Tiempo Tardanza", "Monto (Dinero)", "Ejercicio (reps)"])
+            st.dataframe(rows_df, use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab_reg:
+        st.markdown("""
+            <div class="panel" style="margin-top:10px;">
+                <h3 class="panel-title">📝 Registro de Alumnos</h3>
+                <p class="panel-subtitle">Agrega a los alumnos que llegaron tarde. El sistema calcula la penalidad en tiempo real.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        if "num_students" not in st.session_state:
+            st.session_state.num_students = 1
+
+        records = []
+        total_collected = 0.0
+        total_debt = 0.0
+        total_late = 0
+
+        for idx in range(st.session_state.num_students):
+            with st.container():
+                st.markdown(f"""
+                    <div class="student-form-card">
+                        <div class="student-card-header">
+                            <span class="tag">👤 Alumno #{idx + 1}</span>
+                        </div>
                 """, unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            records.append({
-                "idx": idx,
-                "Nombre": name,
-                "Fecha": date_str,
-                "Hora Ingreso": arrival_time_val.strftime("%H:%M:%S"),
-                "Horario": schedule_name,
-                "Tiempo Tardanza (min)": delay_min,
-                "Monto Calculado (S/)": money_amt,
-                "Ejercicio (repeticiones)": exercise_reps,
-                "Tipo de Pago": payment_type,
-                "Estado": estado,
-                "Monto Final (S/)": final_amount,
-            })
-    
-    col_add, col_remove = st.columns([3, 1])
-    with col_add:
-        if st.button("➕ Agregar Tardón", key="add_more", type="secondary"):
-            st.session_state.num_students += 1
-            st.rerun()
-    
-    with col_remove:
-        if st.session_state.num_students > 1:
-            if st.button("🗑️", key="remove_last", type="secondary"):
-                for key in [f"name_{st.session_state.num_students - 1}", 
-                            f"time_{st.session_state.num_students - 1}",
-                            f"pay_{st.session_state.num_students - 1}"]:
-                    if key in st.session_state:
-                        del st.session_state[key]
+
+                c1, c2 = st.columns([1.3, 1])
+                with c1:
+                    nk = f"name_{idx}"
+                    if nk not in st.session_state:
+                        st.session_state[nk] = ""
+                    name = st.text_input("Nombres y Apellidos:", placeholder="Ej: Juan Pérez Gómez", key=nk)
+                with c2:
+                    tk = f"time_{idx}"
+                    if tk not in st.session_state:
+                        st.session_state[tk] = ref_datetime.time()
+                    arrival = st.time_input("Hora de Ingreso:", value=st.session_state[tk], key=tk)
+                    arrival_t = arrival.time() if isinstance(arrival, datetime) else arrival
+
+                delay_min, money_amt, exercise_reps = calculate_penalty(
+                    arrival_t, start_time, end_time, ref_datetime.date()
+                )
+
+                pk = f"pay_{idx}"
+                if pk not in st.session_state:
+                    if delay_min == 0:
+                        st.session_state[pk] = "Pagar Dinero"
+                    else:
+                        st.session_state[pk] = "Sin Pago / Deuda"
+                payment_type = st.selectbox("Tipo de Pago / Resolución:",
+                    ["Pagar Dinero", "Realizar Ejercicio", "Sin Pago / Deuda"], key=pk,
+                    disabled=(delay_min == 0))
+
+                final_amount = 0.0
+                estado = "A Tiempo"
+
+                if delay_min > 0:
+                    if payment_type == "Pagar Dinero":
+                        final_amount = money_amt
+                        estado = f"Pagado (S/ {money_amt:.2f})"
+                        total_collected += money_amt
+                    elif payment_type == "Realizar Ejercicio":
+                        final_amount = 0.0
+                        estado = f"Ejercicio Realizado ({exercise_reps} reps)"
+                    else:
+                        final_amount = 0.0
+                        estado = f"Con Deuda (S/ {money_amt:.2f})"
+                        total_debt += money_amt
+                    total_late += 1
+
+                if delay_min == 0:
+                    st.markdown(f"""
+                        <div class="penalty-box on-time">
+                            <h4>✅ Alumno a Tiempo</h4>
+                            <div class="penalty-grid">
+                                <div class="penalty-item">
+                                    <div class="pi-label">Estado</div>
+                                    <div class="pi-value" style="color:#15803d;">A tiempo</div>
+                                </div>
+                                <div class="penalty-item">
+                                    <div class="pi-label">Penalidad</div>
+                                    <div class="pi-value" style="color:#15803d;">S/ 0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div class="penalty-box late">
+                            <h4>⚠️ Penalidad Calculada Automáticamente</h4>
+                            <div class="penalty-grid">
+                                <div class="penalty-item">
+                                    <div class="pi-label">Tiempo de Tardanza</div>
+                                    <div class="pi-value">{delay_min} min</div>
+                                </div>
+                                <div class="penalty-item">
+                                    <div class="pi-label">Bloques</div>
+                                    <div class="pi-value">{(delay_min + 9)//10} bloque(s)</div>
+                                </div>
+                                <div class="penalty-item">
+                                    <div class="pi-label">Monto (Dinero)</div>
+                                    <div class="pi-value" style="color:#b45309;">S/ {money_amt:.2f}</div>
+                                </div>
+                                <div class="penalty-item">
+                                    <div class="pi-label">Ejercicio (repeticiones)</div>
+                                    <div class="pi-value" style="color:#92400e;">{exercise_reps} reps</div>
+                                </div>
+                            </div>
+                            <div style="margin-top:10px;">
+                                <span class="badge {"badge-success" if final_amount > 0 else ("badge-info" if payment_type == "Realizar Ejercicio" else "badge-danger")}">
+                                    {estado}
+                                </span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                records.append({
+                    "idx": idx,
+                    "Nombre": name.strip(),
+                    "Fecha": date_str,
+                    "Hora Ingreso": arrival_t.strftime("%H:%M:%S"),
+                    "Horario": schedule_name,
+                    "Tiempo Tardanza (min)": delay_min,
+                    "Monto Calculado (S/)": money_amt,
+                    "Ejercicio (repeticiones)": exercise_reps,
+                    "Tipo de Pago": payment_type,
+                    "Estado": estado,
+                    "Monto Final (S/)": final_amount,
+                })
+
+        colA, colB, colC = st.columns([2, 1, 1])
+        with colA:
+            if st.button("➕ Agregar Tardón (nuevo alumno)", use_container_width=True):
+                st.session_state.num_students += 1
+                st.rerun()
+        with colB:
+            if st.session_state.num_students > 1 and st.button("🗑️ Quitar último", use_container_width=True):
+                for k in [f"name_{st.session_state.num_students - 1}",
+                          f"time_{st.session_state.num_students - 1}",
+                          f"pay_{st.session_state.num_students - 1}"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
                 st.session_state.num_students -= 1
                 st.rerun()
-    
-    st.markdown('<div style="margin: 16px 0;"></div>', unsafe_allow_html=True)
-    
-    if total_collected > 0:
-        st.markdown(f"""
-            <div class="total-card">
-                <h2>💰 TOTAL RECAUDADO HOY</h2>
-                <div class="total-amount">S/ {total_collected:.2f}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    if total_debt > 0:
-        st.markdown(f"""
-            <div class="debt-card">
-                <h2>⚠️ DEUDA PENDIENTE</h2>
-                <div class="total-amount">S/ {total_debt:.2f}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    save_btn = st.button("💾 Guardar Registros en Google Sheets", key="save_btn", type="primary")
-    
-    if save_btn:
-        valid_records = [r for r in records if r["Nombre"].strip()]
-        if not valid_records:
-            st.error("❌ No hay registros válidos. Ingresa al menos un nombre.")
-        else:
-            try:
-                with st.spinner("Guardando en Google Sheets..."):
-                    ws = get_or_create_worksheet(date_iso)
-                    
-                    existing_rows = ws.get_all_values()
-                    start_row = len(existing_rows) + 1
-                    
-                    rows_to_append = []
-                    for r in valid_records:
-                        rows_to_append.append([
-                            r["Nombre"],
-                            r["Fecha"],
-                            r["Hora Ingreso"],
-                            r["Horario"],
-                            r["Tiempo Tardanza (min)"],
-                            r["Monto Calculado (S/)"],
-                            r["Ejercicio (repeticiones)"],
-                            r["Tipo de Pago"],
-                            r["Estado"],
-                            r["Monto Final (S/)"],
-                        ])
-                    
-                    ws.insert_rows(rows_to_append, start_row)
-                    
-                    recaudado = sum(r["Monto Final (S/)"] for r in valid_records)
-                    st.success(f"✅ {len(valid_records)} registro(s) guardado(s) correctamente. Total recaudado: S/ {recaudado:.2f}")
-                    
+        with colC:
+            if st.button("🔄 Resetear Formulario", use_container_width=True):
+                for k in list(st.session_state.keys()):
+                    if k.startswith(("name_", "time_", "pay_", "num_students")):
+                        del st.session_state[k]
+                st.rerun()
+
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+
+        rc1, rc2, rc3 = st.columns(3)
+        with rc1:
+            st.markdown(f"""
+                <div class="stat-card success">
+                    <div class="stat-icon">💰</div>
+                    <p class="stat-label">Total Recaudado Hoy</p>
+                    <p class="stat-value" style="color:#15803d;">S/ {total_collected:.2f}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        with rc2:
+            st.markdown(f"""
+                <div class="stat-card danger">
+                    <div class="stat-icon">⚠️</div>
+                    <p class="stat-label">Deuda Pendiente</p>
+                    <p class="stat-value" style="color:#b91c1c;">S/ {total_debt:.2f}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        with rc3:
+            st.markdown(f"""
+                <div class="stat-card warning">
+                    <div class="stat-icon">🚶</div>
+                    <p class="stat-label">Alumnos Tarde</p>
+                    <p class="stat-value">{total_late} / {len(records)}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
+
+        if st.button("💾  Guardar Registros en Google Sheets", type="primary", use_container_width=True):
+            valid = [r for r in records if r["Nombre"]]
+            if not valid:
+                st.error("❌ No hay registros válidos. Ingresa al menos un nombre.")
+            else:
+                try:
+                    with st.spinner("Guardando registros en Google Sheets..."):
+                        ws = get_or_create_worksheet(date_iso)
+                        existing = ws.get_all_values()
+                        start_row = len(existing) + 1
+                        rows = [[
+                            r["Nombre"], r["Fecha"], r["Hora Ingreso"], r["Horario"],
+                            r["Tiempo Tardanza (min)"], r["Monto Calculado (S/)"],
+                            r["Ejercicio (repeticiones)"], r["Tipo de Pago"],
+                            r["Estado"], r["Monto Final (S/)"],
+                        ] for r in valid]
+                        ws.insert_rows(rows, start_row)
+                    recaudado = sum(r["Monto Final (S/)"] for r in valid)
+                    st.success(f"✅ {len(valid)} registro(s) guardado(s). Total recaudado: S/ {recaudado:.2f}")
                     st.balloons()
+                except Exception as e:
+                    st.error(f"❌ Error al guardar: {str(e)}")
+                    st.info("💡 Verifica: 1) Secrets en Streamlit, 2) Sheet compartido con bot, 3) APIs activadas.")
+
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+
+        if st.button("📄  Generar Reporte PDF del Día (y subir a Drive)", use_container_width=True):
+            try:
+                with st.spinner("Generando PDF y subiendo a Google Drive..."):
+                    ws = get_or_create_worksheet(date_iso)
+                    data = ws.get_all_records()
+                    if not data:
+                        st.warning("⚠️ No hay registros guardados para este día. Primero guarda los registros.")
+                    else:
+                        pdf_path, pdf_total, pdf_debt = generate_pdf(date_str, data, schedule_name)
+                        file_name = f"Reporte_Tardanzas_{date_iso}.pdf"
+                        link = upload_to_drive(pdf_path, file_name)
+                        with open(pdf_path, "rb") as f:
+                            pdf_bytes = f.read()
+                        d1, d2 = st.columns(2)
+                        with d1:
+                            st.download_button("⬇️  Descargar PDF", pdf_bytes, file_name,
+                                "application/pdf", use_container_width=True, type="primary")
+                        with d2:
+                            if link:
+                                st.success("✅ PDF generado y subido a Google Drive.")
+                                st.markdown(f"[☁️  Abrir PDF en Google Drive]({link})")
+                        try: os.unlink(pdf_path)
+                        except: pass
             except Exception as e:
-                st.error(f"❌ Error al guardar: {str(e)}")
-                st.info("💡 Verifica las credenciales de Google en st.secrets y que el bot tenga acceso al sheet.")
-    
-    st.markdown('<div style="margin: 12px 0;"></div>', unsafe_allow_html=True)
-    
-    pdf_btn = st.button("📄 Generar Reporte PDF del Día", key="pdf_btn", type="secondary")
-    
-    if pdf_btn:
+                st.error(f"❌ Error: {str(e)}")
+
+    with tab_hist:
         try:
-            with st.spinner("Cargando datos y generando PDF..."):
+            with st.spinner("Cargando historial del día desde Google Sheets..."):
                 ws = get_or_create_worksheet(date_iso)
                 data = ws.get_all_records()
-                
                 if not data:
-                    st.warning("⚠️ No hay registros guardados para este día. Guarda primero los registros.")
+                    st.info("📭 No hay registros guardados para este día aún. Usa la pestaña de Registro.")
                 else:
-                    pdf_path, pdf_total, pdf_debt = generate_pdf(date_str, data, schedule_name)
-                    file_name = f"Reporte_Tardanzas_{date_iso}.pdf"
-                    
-                    drive_link = upload_to_drive(pdf_path, file_name)
-                    
-                    with open(pdf_path, "rb") as f:
-                        pdf_bytes = f.read()
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.download_button(
-                            label="⬇️ Descargar PDF",
-                            data=pdf_bytes,
-                            file_name=file_name,
-                            mime="application/pdf",
-                            key="download_pdf",
-                            type="primary"
-                        )
-                    with col2:
-                        if drive_link:
-                            st.markdown(f"[☁️ Ver en Google Drive]({drive_link})")
-                    
-                    st.success(f"✅ PDF generado y subido a Google Drive correctamente.")
-                    
-                    try:
-                        os.unlink(pdf_path)
-                    except:
-                        pass
+                    df = pd.DataFrame(data)
+                    st.markdown(f"""
+                        <div class="panel" style="margin-top:10px;">
+                            <h3 class="panel-title">📊 Historial de Hoy ({date_str})</h3>
+                            <p class="panel-subtitle">Total de {len(df)} registro(s) guardados en Google Sheets.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    recaudado = sum(float(r.get("Monto Final (S/)", 0)) for r in data)
+                    deuda = sum(float(r.get("Monto Calculado (S/)", 0)) for r in data
+                                if isinstance(r.get("Estado", ""), str) and "Deuda" in r.get("Estado", ""))
+                    t1, t2, t3 = st.columns(3)
+                    t1.metric("Registros", len(df))
+                    t2.metric("Recaudado Total", f"S/ {recaudado:.2f}")
+                    t3.metric("Deuda Pendiente", f"S/ {deuda:.2f}")
+                    st.dataframe(df, use_container_width=True, hide_index=True, height=420)
         except Exception as e:
-            st.error(f"❌ Error al generar PDF: {str(e)}")
-            st.info("💡 Verifica la configuración de Google Drive en st.secrets.")
-    
-    st.markdown('<div style="margin: 24px 0;"></div>', unsafe_allow_html=True)
-    
-    with st.expander("ℹ️ Instrucciones de Configuración"):
-        st.markdown("""
-### 📋 Estructura de Google Sheets
+            st.warning(f"No se pudo cargar el historial: {str(e)}")
 
-1. **Crea una hoja de cálculo** en Google Sheets con el nombre: **`ControlTardanzas`**
-2. **Comparte la hoja** con el correo de la cuenta de servicio (lo encontrarás en el JSON de credenciales como `client_email`), dándole permisos de **Editor**.
-3. La aplicación creará automáticamente una pestaña por cada día con formato `YYYY-MM-DD` y estos encabezados:
-   - Nombres y Apellidos
-   - Fecha
-   - Hora de Ingreso
-   - Horario de Control
-   - Tiempo de Tardanza (min)
-   - Monto Calculado (S/)
-   - Ejercicio (repeticiones)
-   - Tipo de Pago
-   - Estado
-   - Monto Final (S/)
+    st.markdown('<div class="footer-brand">© 2026 <strong>CupoApp</strong> · Taller de Investigación UC · Desarrollado con Streamlit</div>',
+        unsafe_allow_html=True)
 
-### 🔐 Configuración de Secrets en Streamlit Cloud
 
-Crea un archivo `.streamlit/secrets.toml` en local o configura los Secrets en Streamlit Cloud:
+def main():
+    bot_email = st.secrets.get("google_service_account", {}).get("client_email",
+        "bot-tardanzas@true-ion-506204-h6.iam.gserviceaccount.com")
+    real_now = datetime.now()
 
-```toml
-[google_service_account]
-type = "service_account"
-project_id = "tu-project-id"
-private_key_id = "tu-private-key-id"
-private_key = "-----BEGIN PRIVATE KEY-----\nTU_KEY_AQUI\n-----END PRIVATE KEY-----\n"
-client_email = "tu-cuenta@tu-project.iam.gserviceaccount.com"
-client_id = "tu-client-id"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/tu-cuenta%40tu-project.iam.gserviceaccount.com"
-universe_domain = "googleapis.com"
+    with st.sidebar:
+        with st.expander("🧪 Modo Pruebas (Testing)", expanded=False):
+            st.markdown("""
+                <p style="font-size:0.8rem;color:#64748b;margin:0 0 8px 0;">
+                    Activa este modo para simular otros días/horarios y probar el sistema sin esperar a Lunes o Miércoles.
+                </p>
+            """, unsafe_allow_html=True)
+            test_mode = st.checkbox("Activar Modo Pruebas", value=False, key="_test_mode_toggle")
 
-sheet_name = "ControlTardanzas"
-drive_folder_id = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890"
-```
+    is_test_mode = bool(test_mode)
 
-### 🛠️ Pasos para obtener credenciales de Google:
+    if not is_test_mode:
+        real_weekday = real_now.weekday()
+        if real_weekday not in VALID_WEEKDAYS:
+            locked_view(bot_email, real_now)
+            return
+        ref_datetime = real_now
+    else:
+        with st.sidebar:
+            st.markdown("""
+                <div class="panel" style="padding:12px;border:1px dashed #f59e0b;margin-top:8px;">
+                    <h3 class="panel-title" style="font-size:0.95rem;">🧪 Simular Fecha y Hora</h3>
+                    <p class="panel-subtitle">Ajusta estos valores para probar escenarios de Lunes o Miércoles.</p>
+            """, unsafe_allow_html=True)
 
-1. Ve a **Google Cloud Console** → https://console.cloud.google.com/
-2. Crea un nuevo proyecto o usa uno existente
-3. Activa las APIs: **Google Sheets API** y **Google Drive API**
-4. Ve a **Credenciales** → **Crear credenciales** → **Cuenta de servicio**
-5. Crea la cuenta, descarga el JSON de credenciales
-6. Copia los valores del JSON al `secrets.toml`
-7. Crea una carpeta en Google Drive, copia su ID (de la URL) y ponlo en `drive_folder_id`
-8. Comparte la carpeta con el `client_email` de la cuenta de servicio
-        """)
+            default_test_date = real_now.date()
+            days_until_monday = (0 - real_now.weekday()) % 7
+            if days_until_monday == 0 and real_now.weekday() != 0:
+                days_until_monday = 7
+            elif real_now.weekday() not in (0, 2):
+                days_until_monday = (0 - real_now.weekday()) % 7
+                if days_until_monday == 0:
+                    days_until_monday = 2 if (2 - real_now.weekday()) > 0 else 7 - real_now.weekday() + 2
+
+            suggested_date = real_now.date() + timedelta(days=days_until_monday if real_now.weekday() not in (0,2) else 0)
+            if real_now.weekday() not in (0, 2):
+                suggested_date = real_now.date() + timedelta(days=((0 - real_now.weekday()) % 7 or 7))
+
+            t_date = st.date_input("Fecha a simular:", value=suggested_date,
+                help="Escoge un Lunes o Miércoles", key="_test_date")
+            t_time = st.time_input("Hora a simular:", value=time(19, 20),
+                help="Ej: Lunes 19:20 para probar una tardanza de 10 min", key="_test_time")
+
+            if t_date.weekday() not in VALID_WEEKDAYS:
+                st.warning("⚠️ La fecha seleccionada NO es Lunes ni Miércoles. Elige otra fecha.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if t_date.weekday() not in VALID_WEEKDAYS:
+            locked_view(bot_email, datetime.combine(t_date, t_time))
+            return
+
+        ref_datetime = datetime.combine(t_date, t_time)
+
+    main_view(ref_datetime, is_test_mode, real_now)
 
 
 if __name__ == "__main__":
