@@ -392,6 +392,43 @@ SCHEDULES = {
 VALID_WEEKDAYS = set(SCHEDULES.keys())
 DAY_NAMES = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
 
+LISTA_ALUMNOS = [
+    "",  # Opción en blanco por defecto
+    "BEDER EDISON ACHIRI SILLO",
+    "PAUL GONZALO ACURIO JARA",
+    "FABRIZIO YAIR AGUILAR VARGAS",
+    "ELVIS ROBERTO BAUTISTA HUILLCA",
+    "RONALDO CASILLA MAMANI",
+    "SAMIR JUNIOR CHALLCO CCOHUANQUI",
+    "PATRICK JAVIER CUEVA RAMOS",
+    "KATILIZ ALVI CUTI USCCA",
+    "DIEGO ALEJANDRO DE LA FLOR PARHUAYO",
+    "KIRTHEEN GAMARRA VASQUEZ",
+    "STEVE YUNIOR HUAMAN PENA",
+    "JUAN SEBASTIAN JANCCO SALAS",
+    "SERGIO DAVID LLANOS CHACMANA",
+    "CARLOS EDUARDO LOAIZA MARTINEZ",
+    "DANNY RONALDO MACEDO ANCORI",
+    "EMERSON MAMANI CCAYAVILLCA",
+    "KAREN LISBETH MEJIA PAUCCAR",
+    "EDISON ALEXIS MERMA MAXI",
+    "AXEL ROLANDO NUNEZ ENRIQUEZ",
+    "IVAN ORTIZ PACHACUTE",
+    "ANTHONY DENNIS OYOLA SALOMA",
+    "EDDU YERARDO PANTI MOZO",
+    "MARCELO FLAVIO PAREDES ESTRADA",
+    "DANIEL BENJAMYN PRADO FARFAN",
+    "KATIA ANGELA QUINTA QUISPE",
+    "JUAN EDUARDO QUISPE BOLANOS",
+    "DANIEL BENJAMIN QUISPIRROCA BENITEZ",
+    "MAYKOL ROCCA PUMA",
+    "JOSEPH ANIBAL ROJAS CANALES",
+    "KAROL RODRIGO SOTELO CUTIPA",
+    "DENILSON RIVALDO SUBLE LIMA",
+    "GUIDO VILLAMONTE SULLCA",
+    "JUAN ALDAIR ZAVALA HUACARPUMA",
+]
+
 
 def get_google_credentials():
     scopes = [
@@ -834,7 +871,14 @@ def main_view(ref_datetime, is_test_mode, real_now):
                     nk = f"name_{idx}"
                     if nk not in st.session_state:
                         st.session_state[nk] = ""
-                    name = st.text_input("Nombres y Apellidos:", placeholder="Ej: Juan Pérez Gómez", key=nk)
+                    name = st.selectbox(
+                        "Nombres y Apellidos:",
+                        options=LISTA_ALUMNOS,
+                        index=LISTA_ALUMNOS.index(st.session_state[nk])
+                              if st.session_state[nk] in LISTA_ALUMNOS else 0,
+                        key=nk,
+                        help="Escribe parte del nombre para filtrar la lista",
+                    )
                 with c2:
                     tk = f"time_{idx}"
                     if tk not in st.session_state:
