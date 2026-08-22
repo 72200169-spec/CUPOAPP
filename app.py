@@ -400,38 +400,20 @@ def get_google_credentials():
         "https://www.googleapis.com/auth/drive.file",
     ]
 
+    # Prioridad 1: Leer desde st.secrets (Entorno Streamlit / Producción)
+    if "google_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["google_service_account"])
+        # Limpieza estricta de saltos de línea para evitar el error MalformedFraming
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        return Credentials.from_service_account_info(creds_dict, scopes=scopes)
+
+    # Prioridad 2: Fallback a archivo JSON local si no existen st.secrets
     json_path = st.secrets.get("json_key_path", "")
     if json_path and os.path.exists(json_path):
-        try:
-            return Credentials.from_service_account_file(json_path, scopes=scopes)
-        except Exception as e:
-            # Si falla el archivo local, continuar con las credenciales de secrets
-            pass
+        return Credentials.from_service_account_file(json_path, scopes=scopes)
 
-    account = st.secrets.get("google_service_account", {})
-    # FIX: limpiar la private_key para que los saltos de línea sean reales
-    # Streamlit puede entregar la clave con \n literales en vez de saltos reales
-    raw_key = account.get("private_key", "")
-    private_key = raw_key.replace("\\n", "\n")
-    # Asegurar que los marcadores BEGIN/END estén en su propia línea
-    if "-----BEGIN PRIVATE KEY-----" in private_key and "\n" not in private_key:
-        private_key = private_key.replace("-----BEGIN PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----\n")
-        private_key = private_key.replace("-----END PRIVATE KEY-----", "\n-----END PRIVATE KEY-----")
-    creds_dict = {
-        "type": account.get("type", "service_account"),
-        "project_id": account.get("project_id", ""),
-        "private_key_id": account.get("private_key_id", ""),
-        "private_key": private_key,
-        "client_email": account.get("client_email", ""),
-        "client_id": account.get("client_id", ""),
-        "auth_uri": account.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
-        "token_uri": account.get("token_uri", "https://oauth2.googleapis.com/token"),
-        "auth_provider_x509_cert_url": account.get("auth_provider_x509_cert_url",
-            "https://www.googleapis.com/oauth2/v1/certs"),
-        "client_x509_cert_url": account.get("client_x509_cert_url", ""),
-        "universe_domain": account.get("universe_domain", "googleapis.com"),
-    }
-    return Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    raise ValueError("No se encontraron credenciales válidas en secrets ni en archivo JSON local.")
 
 
 def get_spreadsheet():
