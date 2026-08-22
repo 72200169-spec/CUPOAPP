@@ -400,30 +400,25 @@ def get_google_credentials():
         "https://www.googleapis.com/auth/drive.file",
     ]
 
-    # Prioridad 1: st.secrets (Streamlit Cloud o secrets.toml local)
-    if "google_service_account" in st.secrets:
+    # 1. Intentar cargar desde Streamlit Secrets
+    if hasattr(st, "secrets") and "google_service_account" in st.secrets:
         creds_dict = dict(st.secrets["google_service_account"])
         if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+            # Limpieza profunda de saltos de línea para la private_key
+            pkey = creds_dict["private_key"]
+            pkey = pkey.replace("\\n", "\n").strip()
+            # Asegurar comillas limpias por si el valor viene envuelto en ellas
+            if pkey.startswith('"') and pkey.endswith('"'):
+                pkey = pkey[1:-1]
+            creds_dict["private_key"] = pkey
         return Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    # Prioridad 2: buscar el JSON en múltiples rutas (misma carpeta → carpeta padre → ruta absoluta en secrets)
-    _json_name = "true-ion-506204-h6-87d6230be89b.json"
-    _base_dir  = os.path.dirname(os.path.abspath(__file__))
-    _candidates = [
-        os.path.join(_base_dir, _json_name),                     # misma carpeta que app.py
-        os.path.join(_base_dir, "..", _json_name),               # carpeta padre
-        st.secrets.get("json_key_path", ""),                     # ruta configurada en secrets
-    ]
-    for _path in _candidates:
-        if _path and os.path.exists(_path):
-            return Credentials.from_service_account_file(_path, scopes=scopes)
+    # 2. Respaldo local: misma carpeta que app.py
+    json_name = "true-ion-506204-h6-87d6230be89b.json"
+    if os.path.exists(json_name):
+        return Credentials.from_service_account_file(json_name, scopes=scopes)
 
-    raise ValueError(
-        "No se encontraron credenciales válidas. "
-        "Verifica que secrets.toml esté configurado o que el archivo "
-        f"'{_json_name}' exista en la carpeta de la app o en su carpeta padre."
-    )
+    raise ValueError("No se pudieron cargar las credenciales.")
 
 
 def get_spreadsheet():
@@ -806,7 +801,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
                 ["41 - 50 min", "S/ 2.50", "50 reps"],
                 ["51 - 60 min", "S/ 3.00", "60 reps"],
             ], columns=["Tiempo Tardanza", "Monto (Dinero)", "Ejercicio (reps)"])
-            st.dataframe(rows_df, use_container_width=True, hide_index=True)
+            st.dataframe(rows_df, width="stretch", hide_index=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
     with tab_reg:
@@ -942,11 +937,11 @@ def main_view(ref_datetime, is_test_mode, real_now):
 
         colA, colB, colC = st.columns([2, 1, 1])
         with colA:
-            if st.button("➕ Agregar Tardón (nuevo alumno)", use_container_width=True):
+            if st.button("➕ Agregar Tardón (nuevo alumno)", width="stretch"):
                 st.session_state.num_students += 1
                 st.rerun()
         with colB:
-            if st.session_state.num_students > 1 and st.button("🗑️ Quitar último", use_container_width=True):
+            if st.session_state.num_students > 1 and st.button("🗑️ Quitar último", width="stretch"):
                 for k in [f"name_{st.session_state.num_students - 1}",
                           f"time_{st.session_state.num_students - 1}",
                           f"pay_{st.session_state.num_students - 1}"]:
@@ -955,7 +950,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
                 st.session_state.num_students -= 1
                 st.rerun()
         with colC:
-            if st.button("🔄 Resetear Formulario", use_container_width=True):
+            if st.button("🔄 Resetear Formulario", width="stretch"):
                 for k in list(st.session_state.keys()):
                     if k.startswith(("name_", "time_", "pay_", "num_students")):
                         del st.session_state[k]
@@ -991,7 +986,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
 
         st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
 
-        if st.button("💾  Guardar Registros en Google Sheets", type="primary", use_container_width=True):
+        if st.button("💾  Guardar Registros en Google Sheets", type="primary", width="stretch"):
             valid = [r for r in records if r["Nombre"]]
             if not valid:
                 st.error("❌ No hay registros válidos. Ingresa al menos un nombre.")
@@ -1017,7 +1012,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
 
         st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
 
-        if st.button("📄  Generar Reporte PDF del Día (y subir a Drive)", use_container_width=True):
+        if st.button("📄  Generar Reporte PDF del Día (y subir a Drive)", width="stretch"):
             try:
                 with st.spinner("Generando PDF y subiendo a Google Drive..."):
                     ws = get_or_create_worksheet(date_iso)
@@ -1033,7 +1028,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
                         d1, d2 = st.columns(2)
                         with d1:
                             st.download_button("⬇️  Descargar PDF", pdf_bytes, file_name,
-                                "application/pdf", use_container_width=True, type="primary")
+                                "application/pdf", width="stretch", type="primary")
                         with d2:
                             if link:
                                 st.success("✅ PDF generado y subido a Google Drive.")
@@ -1066,7 +1061,7 @@ def main_view(ref_datetime, is_test_mode, real_now):
                     t1.metric("Registros", len(df))
                     t2.metric("Recaudado Total", f"S/ {recaudado:.2f}")
                     t3.metric("Deuda Pendiente", f"S/ {deuda:.2f}")
-                    st.dataframe(df, use_container_width=True, hide_index=True, height=420)
+                    st.dataframe(df, width="stretch", hide_index=True, height=420)
         except Exception as e:
             st.warning(f"No se pudo cargar el historial: {str(e)}")
 
@@ -1092,11 +1087,11 @@ def main():
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("☀️ Claro", key="btn_light", use_container_width=True):
+            if st.button("☀️ Claro", key="btn_light", width="stretch"):
                 st.session_state.theme = "light"
                 st.rerun()
         with col2:
-            if st.button("🌙 Oscuro", key="btn_dark", use_container_width=True):
+            if st.button("🌙 Oscuro", key="btn_dark", width="stretch"):
                 st.session_state.theme = "dark"
                 st.rerun()
 
