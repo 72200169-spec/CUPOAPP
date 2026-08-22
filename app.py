@@ -408,9 +408,12 @@ def get_google_credentials():
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         return Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    # Prioridad 2: Fallback a archivo JSON local si no existen st.secrets
+    # Prioridad 2: Fallback a archivo JSON local
+    # Primero intenta la ruta definida en secrets, luego la ruta hardcodeada
     json_path = st.secrets.get("json_key_path", "")
-    if json_path and os.path.exists(json_path):
+    if not json_path or not os.path.exists(json_path):
+        json_path = r"D:\PERSONAL\PAUL UC\UC_2026-02\taller de investigacion\true-ion-506204-h6-87d6230be89b.json"
+    if os.path.exists(json_path):
         return Credentials.from_service_account_file(json_path, scopes=scopes)
 
     raise ValueError("No se encontraron credenciales válidas en secrets ni en archivo JSON local.")
