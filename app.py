@@ -400,23 +400,30 @@ def get_google_credentials():
         "https://www.googleapis.com/auth/drive.file",
     ]
 
-    # Prioridad 1: Leer desde st.secrets (Entorno Streamlit / Producción)
+    # Prioridad 1: st.secrets (Streamlit Cloud o secrets.toml local)
     if "google_service_account" in st.secrets:
         creds_dict = dict(st.secrets["google_service_account"])
-        # Limpieza estricta de saltos de línea para evitar el error MalformedFraming
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         return Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    # Prioridad 2: Fallback a archivo JSON local
-    # Primero intenta la ruta definida en secrets, luego la ruta hardcodeada
-    json_path = st.secrets.get("json_key_path", "")
-    if not json_path or not os.path.exists(json_path):
-        json_path = r"D:\PERSONAL\PAUL UC\UC_2026-02\taller de investigacion\true-ion-506204-h6-87d6230be89b.json"
-    if os.path.exists(json_path):
-        return Credentials.from_service_account_file(json_path, scopes=scopes)
+    # Prioridad 2: buscar el JSON en múltiples rutas (misma carpeta → carpeta padre → ruta absoluta en secrets)
+    _json_name = "true-ion-506204-h6-87d6230be89b.json"
+    _base_dir  = os.path.dirname(os.path.abspath(__file__))
+    _candidates = [
+        os.path.join(_base_dir, _json_name),                     # misma carpeta que app.py
+        os.path.join(_base_dir, "..", _json_name),               # carpeta padre
+        st.secrets.get("json_key_path", ""),                     # ruta configurada en secrets
+    ]
+    for _path in _candidates:
+        if _path and os.path.exists(_path):
+            return Credentials.from_service_account_file(_path, scopes=scopes)
 
-    raise ValueError("No se encontraron credenciales válidas en secrets ni en archivo JSON local.")
+    raise ValueError(
+        "No se encontraron credenciales válidas. "
+        "Verifica que secrets.toml esté configurado o que el archivo "
+        f"'{_json_name}' exista en la carpeta de la app o en su carpeta padre."
+    )
 
 
 def get_spreadsheet():
